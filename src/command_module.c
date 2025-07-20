@@ -24,12 +24,27 @@ void cmd_write(const char *s) {
 }
 
 void cmd_printf(const char *fmt, ...) {
-    char buf[CMD_MAX_LINE_LEN];
+    char buf[32]; // Use a smaller buffer for streaming
     va_list args;
     va_start(args, fmt);
-    vsnprintf(buf, sizeof(buf), fmt, args);
+    int len = vsnprintf(NULL, 0, fmt, args); // Get the total length of the formatted string
     va_end(args);
-    cmd_write(buf);
+
+    if (len > 0) {
+        char *formatted = (char *)malloc(len + 1); // Allocate memory for the full string
+        if (formatted) {
+            va_start(args, fmt);
+            vsnprintf(formatted, len + 1, fmt, args);
+            va_end(args);
+
+            for (int i = 0; i < len; i += sizeof(buf) - 1) {
+                strncpy(buf, &formatted[i], sizeof(buf) - 1);
+                buf[sizeof(buf) - 1] = '\0'; // Ensure null termination
+                cmd_write(buf);
+            }
+            free(formatted); // Free the allocated memory
+        }
+    }
 }
 
 // ISR-callback: enqueue received byte and re-arm next RX
