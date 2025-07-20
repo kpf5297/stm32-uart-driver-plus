@@ -12,30 +12,12 @@
 #include "queue.h"
 #include "task.h"
 #include "semphr.h"
+#include "uart_driver_config.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#ifndef LOGGING_ENABLED
-#define LOGGING_ENABLED 1
-#endif
-
-#ifndef MAX_LOG_PAYLOAD
-#define MAX_LOG_PAYLOAD 128
-#endif
-
-#ifndef LOG_QUEUE_DEPTH
-#define LOG_QUEUE_DEPTH 32
-#endif
-
-#ifndef LOG_TASK_STACK
-#define LOG_TASK_STACK 512
-#endif
-
-#ifndef LOG_TASK_PRIO
-#define LOG_TASK_PRIO (tskIDLE_PRIORITY + 1)
-#endif
 
 /** Severity levels for log entries. */
 typedef enum {

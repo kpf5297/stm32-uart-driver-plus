@@ -7,12 +7,30 @@
 #include "command_module.h"
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <stdarg.h>
 
 #if USE_CMD_INTERPRETER
 
 static QueueHandle_t rx_queue;
 static uart_drv_t   *uart;
 static uint8_t       rx_byte;
+
+// Simple helpers for command handlers
+void cmd_write(const char *s) {
+    if (uart && s) {
+        uart_send_blocking(uart, (uint8_t *)s, strlen(s), 100);
+    }
+}
+
+void cmd_printf(const char *fmt, ...) {
+    char buf[CMD_MAX_LINE_LEN];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+    cmd_write(buf);
+}
 
 // ISR-callback: enqueue received byte and re-arm next RX
 static void uart_event_cb(uart_event_t evt, void *ctx) {

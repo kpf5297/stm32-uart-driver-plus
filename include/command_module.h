@@ -9,26 +9,10 @@
 #include "queue.h"
 #include "task.h"
 #include "uart_driver.h"
+#include "uart_driver_config.h"
 #include <stdbool.h>
 
-#ifndef USE_CMD_INTERPRETER
-#define USE_CMD_INTERPRETER 1
-#endif
-
 #if USE_CMD_INTERPRETER
-
-#ifndef CMD_MAX_LINE_LEN
-#define CMD_MAX_LINE_LEN   128
-#endif
-#ifndef CMD_MAX_PARAMS
-#define CMD_MAX_PARAMS     8
-#endif
-#ifndef CMD_TASK_PRIO
-#define CMD_TASK_PRIO      (tskIDLE_PRIORITY + 1)
-#endif
-#ifndef CMD_TASK_STACK
-#define CMD_TASK_STACK     256
-#endif
 
 /** Parsed argument list provided to command handlers. */
 typedef struct {
@@ -52,6 +36,11 @@ extern const size_t  cmd_count;
  * Registers UART callbacks and launches the command processing task.
  */
 void cmd_init(uart_drv_t *uart);
+
+/** Write a string using the interpreter's UART. */
+void cmd_write(const char *s);
+/** printf style helper using the interpreter's UART. */
+void cmd_printf(const char *fmt, ...);
 
 #endif // USE_CMD_INTERPRETER
 #endif // COMMAND_MODULE_H
