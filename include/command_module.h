@@ -1,11 +1,9 @@
-/*
- * command_module.h
- *
- *  Created on: Jul 20, 2025
- *      Author: kevinfox
- */
 #ifndef COMMAND_MODULE_H
 #define COMMAND_MODULE_H
+/**
+ * @file command_module.h
+ * @brief Lightweight UART command interpreter.
+ */
 
 #include "FreeRTOS.h"
 #include "queue.h"
@@ -32,23 +30,27 @@
 #define CMD_TASK_STACK     256
 #endif
 
-// Parsed argument list
+/** Parsed argument list provided to command handlers. */
 typedef struct {
     int   argc;
     char *argv[CMD_MAX_PARAMS];
 } Args;
 
-// Command descriptor
+/** Command descriptor used for registration. */
 typedef struct {
     const char *name;
     void      (*handler)(Args *args);
 } Command;
 
-// Must be defined by application
+/** Application-defined command table */
 extern const Command cmd_list[];
 extern const size_t  cmd_count;
 
-// Initialize command interpreter; shares uart driver instance
+/**
+ * @brief Initialize command interpreter.
+ *
+ * Registers UART callbacks and launches the command processing task.
+ */
 void cmd_init(uart_drv_t *uart);
 
 #endif // USE_CMD_INTERPRETER

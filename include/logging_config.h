@@ -1,12 +1,9 @@
-/*
- * logging_config.h
- *
- *  Created on: Jul 20, 2025
- *      Author: kevinfox
- */
-
 #ifndef LOGGING_CONFIG_H
 #define LOGGING_CONFIG_H
+/**
+ * @file logging_config.h
+ * @brief Build-time configuration for the logging module.
+ */
 
 // Enable/Disable logging and telemetry independently
 #define LOGGING_ENABLED       1

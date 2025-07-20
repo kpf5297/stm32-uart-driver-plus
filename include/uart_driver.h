@@ -1,11 +1,11 @@
-/*
- * uart_driver.h
+/**
+ * @file uart_driver.h
+ * @brief Thread-safe UART driver abstraction for STM32.
  *
- *  Created on: Jul 19, 2025
- *      Author: kevinfox
+ * This module provides blocking and non-blocking APIs for UART
+ * transmission and reception using either interrupts or DMA.
+ * All functions are safe to call from multiple FreeRTOS tasks.
  */
-
-// uart_driver.h
 
 #ifndef UART_DRIVER_H
 #define UART_DRIVER_H
@@ -75,24 +75,43 @@ uart_status_t uart_reconfigure(uart_drv_t *drv,
                                DMA_HandleTypeDef  *hdma_tx,
                                DMA_HandleTypeDef  *hdma_rx);
 
-// Blocking APIs (take mutex, then HAL transmit/receive)
+/**
+ * @brief Transmit data in a blocking manner.
+ *
+ * This function grabs the TX mutex and calls HAL_UART_Transmit().
+ * It will block the calling task for up to @p timeout_ms.
+ */
 uart_status_t uart_send_blocking   (uart_drv_t *drv, uint8_t *data, size_t len, uint32_t timeout_ms);
+
+/**
+ * @brief Receive data in a blocking manner.
+ *
+ * Similar to uart_send_blocking() but for reception.
+ */
 uart_status_t uart_receive_blocking(uart_drv_t *drv, uint8_t *buf,  size_t len, uint32_t timeout_ms);
 
-// Interrupt-driven, non-blocking
+/** @brief Begin an interrupt-driven transmit. */
 uart_status_t uart_send_nb   (uart_drv_t *drv, uint8_t *data, size_t len);
+/** @brief Begin an interrupt-driven receive. */
 uart_status_t uart_receive_nb(uart_drv_t *drv, uint8_t *buf,  size_t len);
 
-// DMA-driven
+/** @brief Begin a DMA based transmit. */
 uart_status_t uart_start_dma_tx(uart_drv_t *drv, uint8_t *data, size_t len);
+/** @brief Begin a DMA based receive. */
 uart_status_t uart_start_dma_rx(uart_drv_t *drv, uint8_t *buf,  size_t len);
 
-// Buffer/status management
+/** Return number of bytes remaining in DMA RX buffer (0 if not using DMA). */
 size_t        uart_bytes_available(uart_drv_t *drv);
+/** Clear any RX error flags. */
 void          uart_flush_rx        (uart_drv_t *drv);
+/** Clear TX completion flag. */
 void          uart_flush_tx        (uart_drv_t *drv);
+/** Retrieve last operation status. */
 uart_status_t uart_get_status      (uart_drv_t *drv);
 
+/**
+ * @brief Internal state structure for a UART instance.
+ */
 struct uart_drv_handle_s {
     UART_HandleTypeDef *huart;
     DMA_HandleTypeDef  *hdma_tx;
@@ -104,7 +123,7 @@ struct uart_drv_handle_s {
     volatile uart_status_t status;
 };
 
-// Event registration
+/** Register a callback invoked from ISR context on UART events. */
 void uart_register_callback(uart_drv_t *drv, uart_callback_t cb, void *user_ctx);
 
 #ifdef __cplusplus
