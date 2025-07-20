@@ -1,57 +1,26 @@
-/* USER CODE BEGIN Header */
-/**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2025 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
-/* USER CODE END Header */
-/* Includes ------------------------------------------------------------------*/
+
 #include "main.h"
 #include "cmsis_os.h"
-
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
 #include "uart_driver.h"
 #include <string.h>
 #include "sample_commands.h"
 #include "command_module.h"
 #include "logging.h"
 
-/* USER CODE END Includes */
+/**
+ * @file main_wLoggingCommand.c
+ * @brief Example using UART driver with CLI and logging modules.
+ *
+ * A terminal connected to USART2 can issue commands while log messages and
+ * telemetry are periodically transmitted.
+ */
 
-/* Private typedef -----------------------------------------------------------*/
-/* USER CODE BEGIN PTD */
-
-/* USER CODE END PTD */
-
-/* Private define ------------------------------------------------------------*/
-/* USER CODE BEGIN PD */
-
-/* USER CODE END PD */
-
-/* Private macro -------------------------------------------------------------*/
-/* USER CODE BEGIN PM */
-
-/* USER CODE END PM */
-
-/* Private variables ---------------------------------------------------------*/
 UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_tx;
 DMA_HandleTypeDef hdma_usart2_rx;
 
 osThreadId defaultTaskHandle;
-/* USER CODE BEGIN PV */
+
 static uart_drv_t uart2_drv;  // UART driver instance for USART2
 // Shared pointer used by sample_commands.c (declared extern in its header)
 uart_drv_t *shared_uart = NULL;        // UART driver instance for USART2
@@ -60,26 +29,15 @@ static void uart_evt_cb(uart_event_t evt, void *user_ctx);
 static void log_test_task(void *pv);
 static void telemetry_test_task(void *pv);
 
-/* USER CODE END PV */
-
-/* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
 void StartDefaultTask(void const * argument);
 
-/* USER CODE BEGIN PFP */
-
-/* USER CODE END PFP */
-
-/* Private user code ---------------------------------------------------------*/
-/* USER CODE BEGIN 0 */
 static void uart_sender_task(void *pv);
 static void uart_receiver_task(void *pv);
 static void uart_echo_task(void *pv);
-
-/* USER CODE END 0 */
 
 /**
   * @brief  The application entry point.
@@ -88,39 +46,39 @@ static void uart_echo_task(void *pv);
 int main(void)
 {
 
-  /* USER CODE BEGIN 1 */
+  
 
-  /* USER CODE END 1 */
+  
 
   /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
 
-  /* USER CODE BEGIN Init */
+  
 
-  /* USER CODE END Init */
+  
 
   /* Configure the system clock */
   SystemClock_Config();
 
-  /* USER CODE BEGIN SysInit */
+  
 
-  /* USER CODE END SysInit */
+  
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_USART2_UART_Init();
-  /* USER CODE BEGIN 2 */
+  
 
-  /* USER CODE END 2 */
+  
 
-  /* USER CODE BEGIN RTOS_MUTEX */
+  
   /* add mutexes, ... */
-  /* USER CODE END RTOS_MUTEX */
+  
 
-  /* USER CODE BEGIN RTOS_SEMAPHORES */
+  
   /* add semaphores, ... */
   rx_done_sem = xSemaphoreCreateBinary();
 
@@ -136,25 +94,24 @@ int main(void)
   // This registers the UART callback, creates the RTOS queue & task
   cmd_init(&uart2_drv);
 
-
   log_init(&uart2_drv);
 
-  /* USER CODE END RTOS_SEMAPHORES */
+  
 
-  /* USER CODE BEGIN RTOS_TIMERS */
+  
   /* start timers, add new ones, ... */
-  /* USER CODE END RTOS_TIMERS */
+  
 
-  /* USER CODE BEGIN RTOS_QUEUES */
+  
   /* add queues, ... */
-  /* USER CODE END RTOS_QUEUES */
+  
 
   /* Create the thread(s) */
   /* definition and creation of defaultTask */
 //  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
 //  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
-  /* USER CODE BEGIN RTOS_THREADS */
+  
   /* add threads, ... */
 //  xTaskCreate(uart_sender_task,  "UART_SND",  256, NULL, tskIDLE_PRIORITY+1, NULL);
 //  xTaskCreate(uart_receiver_task,"UART_RCV",  256, NULL, tskIDLE_PRIORITY+1, NULL);
@@ -164,11 +121,9 @@ int main(void)
 
   xTaskCreate(telemetry_test_task, "TlmTest", 256, NULL, tskIDLE_PRIORITY + 1, NULL);
 
-
   log_write(LOG_LEVEL_INFO, "System initialized.");
 
-
-  /* USER CODE END RTOS_THREADS */
+  
 
   /* Start scheduler */
 //  osKernelStart();
@@ -177,14 +132,14 @@ int main(void)
   /* We should never get here as control is now taken by the scheduler */
 
   /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
+  
   while (1)
   {
-    /* USER CODE END WHILE */
+    
 
-    /* USER CODE BEGIN 3 */
+    
   }
-  /* USER CODE END 3 */
+  
 }
 
 /**
@@ -248,13 +203,13 @@ void SystemClock_Config(void)
 static void MX_USART2_UART_Init(void)
 {
 
-  /* USER CODE BEGIN USART2_Init 0 */
+  
 
-  /* USER CODE END USART2_Init 0 */
+  
 
-  /* USER CODE BEGIN USART2_Init 1 */
+  
 
-  /* USER CODE END USART2_Init 1 */
+  
   huart2.Instance = USART2;
   huart2.Init.BaudRate = 115200;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
@@ -267,11 +222,11 @@ static void MX_USART2_UART_Init(void)
   {
     Error_Handler();
   }
-  /* USER CODE BEGIN USART2_Init 2 */
+  
 	HAL_NVIC_SetPriority(USART2_IRQn, 5, 0);
 	HAL_NVIC_EnableIRQ(USART2_IRQn);
 
-  /* USER CODE END USART2_Init 2 */
+  
 
 }
 
@@ -302,9 +257,9 @@ static void MX_DMA_Init(void)
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-  /* USER CODE BEGIN MX_GPIO_Init_1 */
+  
 
-  /* USER CODE END MX_GPIO_Init_1 */
+  
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
@@ -332,12 +287,11 @@ static void MX_GPIO_Init(void)
   HAL_NVIC_SetPriority(EXTI15_10_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
-  /* USER CODE BEGIN MX_GPIO_Init_2 */
+  
 
-  /* USER CODE END MX_GPIO_Init_2 */
+  
 }
 
-/* USER CODE BEGIN 4 */
 static void uart_echo_task(void *pv)
 {
     uint8_t c;
@@ -387,8 +341,6 @@ static void telemetry_test_task(void *pv)
     }
 }
 
-
-
 // UART event callback — called from ISR context
 static void uart_evt_cb(uart_event_t evt, void *user_ctx)
 {
@@ -436,24 +388,21 @@ static void uart_receiver_task(void *pv)
     }
 }
 
-/* USER CODE END 4 */
-
-/* USER CODE BEGIN Header_StartDefaultTask */
 /**
   * @brief  Function implementing the defaultTask thread.
   * @param  argument: Not used
   * @retval None
   */
-/* USER CODE END Header_StartDefaultTask */
+
 void StartDefaultTask(void const * argument)
 {
-  /* USER CODE BEGIN 5 */
+  
   /* Infinite loop */
   for(;;)
   {
     osDelay(1);
   }
-  /* USER CODE END 5 */
+  
 }
 
 /**
@@ -466,16 +415,16 @@ void StartDefaultTask(void const * argument)
   */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-  /* USER CODE BEGIN Callback 0 */
+  
 
-  /* USER CODE END Callback 0 */
+  
   if (htim->Instance == TIM7)
   {
     HAL_IncTick();
   }
-  /* USER CODE BEGIN Callback 1 */
+  
 
-  /* USER CODE END Callback 1 */
+  
 }
 
 /**
@@ -484,13 +433,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   */
 void Error_Handler(void)
 {
-  /* USER CODE BEGIN Error_Handler_Debug */
+  
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
   while (1)
   {
   }
-  /* USER CODE END Error_Handler_Debug */
+  
 }
 #ifdef USE_FULL_ASSERT
 /**
@@ -502,9 +451,9 @@ void Error_Handler(void)
   */
 void assert_failed(uint8_t *file, uint32_t line)
 {
-  /* USER CODE BEGIN 6 */
+  
   /* User can add his own implementation to report the file name and line number,
      ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-  /* USER CODE END 6 */
+  
 }
 #endif /* USE_FULL_ASSERT */
