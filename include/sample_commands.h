@@ -6,10 +6,7 @@
  */
 
 #include "command_module.h"
-#include "uart_driver.h"
 
-/** UART driver instance provided by the application. */
-extern uart_drv_t *shared_uart;
 
 /** Print list of supported commands. */
 void cmd_help(Args *args);

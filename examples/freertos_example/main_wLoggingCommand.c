@@ -22,8 +22,6 @@ DMA_HandleTypeDef hdma_usart2_rx;
 osThreadId defaultTaskHandle;
 
 static uart_drv_t uart2_drv;  // UART driver instance for USART2
-// Shared pointer used by sample_commands.c (declared extern in its header)
-uart_drv_t *shared_uart = NULL;        // UART driver instance for USART2
 static SemaphoreHandle_t rx_done_sem;
 static void uart_evt_cb(uart_event_t evt, void *user_ctx);
 static void log_test_task(void *pv);
@@ -86,9 +84,6 @@ int main(void)
   if (uart_init(&uart2_drv, &huart2, &hdma_usart2_tx, &hdma_usart2_rx) != UART_OK) {
       Error_Handler();
   }
-
-  // Assign shared_uart so command handlers can use the UART driver
-  shared_uart = &uart2_drv;
 
   // Initialize the command interpreter
   // This registers the UART callback, creates the RTOS queue & task

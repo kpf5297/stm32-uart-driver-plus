@@ -7,12 +7,45 @@
 #include "command_module.h"
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <stdarg.h>
 
 #if USE_CMD_INTERPRETER
 
 static QueueHandle_t rx_queue;
 static uart_drv_t   *uart;
 static uint8_t       rx_byte;
+
+// Simple helpers for command handlers
+void cmd_write(const char *s) {
+    if (uart && s) {
+        uart_send_blocking(uart, (uint8_t *)s, strlen(s), 100);
+    }
+}
+
+void cmd_printf(const char *fmt, ...) {
+    char buf[32]; // Use a smaller buffer for streaming
+    va_list args;
+    va_start(args, fmt);
+    int len = vsnprintf(NULL, 0, fmt, args); // Get the total length of the formatted string
+    va_end(args);
+
+    if (len > 0) {
+        char *formatted = (char *)malloc(len + 1); // Allocate memory for the full string
+        if (formatted) {
+            va_start(args, fmt);
+            vsnprintf(formatted, len + 1, fmt, args);
+            va_end(args);
+
+            for (int i = 0; i < len; i += sizeof(buf) - 1) {
+                strncpy(buf, &formatted[i], sizeof(buf) - 1);
+                buf[sizeof(buf) - 1] = '\0'; // Ensure null termination
+                cmd_write(buf);
+            }
+            free(formatted); // Free the allocated memory
+        }
+    }
+}
 
 // ISR-callback: enqueue received byte and re-arm next RX
 static void uart_event_cb(uart_event_t evt, void *ctx) {

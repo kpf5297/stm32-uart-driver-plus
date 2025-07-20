@@ -9,14 +9,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Shared UART driver instance provided by application
-extern uart_drv_t *shared_uart;
-
-// Helper to send strings over UART (blocking with 100ms timeout)
+// Helper to send strings using command module UART
 static void send_str(const char *s) {
-    if (shared_uart) {
-        uart_send_blocking(shared_uart, (uint8_t *)s, strlen(s), 100);
-    }
+    cmd_write(s);
 }
 
 // 'help' command: list all available commands
