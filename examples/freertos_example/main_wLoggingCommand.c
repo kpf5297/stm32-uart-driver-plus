@@ -58,6 +58,7 @@ uart_drv_t *shared_uart = NULL;        // UART driver instance for USART2
 static SemaphoreHandle_t rx_done_sem;
 static void uart_evt_cb(uart_event_t evt, void *user_ctx);
 static void log_test_task(void *pv);
+static void telemetry_test_task(void *pv);
 
 /* USER CODE END PV */
 
@@ -160,6 +161,9 @@ int main(void)
   xTaskCreate(uart_echo_task, "UART_ECHO", 256, NULL, tskIDLE_PRIORITY+1, NULL);
 
   xTaskCreate(log_test_task, "LogTest", 256, NULL, tskIDLE_PRIORITY+1, NULL);
+
+  xTaskCreate(telemetry_test_task, "TlmTest", 256, NULL, tskIDLE_PRIORITY + 1, NULL);
+
 
   log_write(LOG_LEVEL_INFO, "System initialized.");
 
@@ -370,6 +374,18 @@ static void log_test_task(void *pv)
     vTaskDelete(NULL);
 }
 
+static void telemetry_test_task(void *pv)
+{
+    TelemetryPacket pkt = {0};
+    for (;;) {
+        pkt.sensor1++;
+        pkt.sensor2 = 3.14f * pkt.sensor1;
+
+        telemetry_send(&pkt);
+
+        vTaskDelay(pdMS_TO_TICKS(2000));  // Every 2 seconds
+    }
+}
 
 
 

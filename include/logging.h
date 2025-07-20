@@ -52,11 +52,18 @@ typedef struct {
     char      payload[MAX_LOG_PAYLOAD];
 } LogEntry;
 
+typedef struct {
+    uint32_t sensor1;
+    float sensor2;
+} TelemetryPacket;
+
 // API to initialize logger with uart_driver reference
 void log_init(uart_drv_t *drv);
 
 // Log message at specified level
 void log_write(LogLevel level, const char *fmt, ...);
+
+void telemetry_send(const TelemetryPacket *pkt);
 
 #ifdef __cplusplus
 }
