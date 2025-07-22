@@ -16,7 +16,7 @@ static const char *fault_strings[] = {
     "CONTROL_LOOP_ERROR"
 };
 
-static Timestamp ts_now(void)
+static Timestamp get_current_timestamp_local(void)
 {
     TickType_t ticks = xTaskGetTickCount();
     Timestamp ts;
