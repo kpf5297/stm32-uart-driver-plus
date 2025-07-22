@@ -76,12 +76,13 @@ void cmd_fault_clear(Args *args) {
         fault_clear_all();
         send_str("All faults cleared\r\n");
     } else {
-        int code = atoi(args->argv[1]);
-        if (code > 0 && code < FAULT_COUNT) {
+        char *endptr;
+        long code = strtol(args->argv[1], &endptr, 10);
+        if (*endptr != '\0' || code <= 0 || code >= FAULT_COUNT) {
+            send_str("Invalid code\r\n");
+        } else {
             fault_clear((FaultCode)code);
             send_str("Fault cleared\r\n");
-        } else {
-            send_str("Invalid code\r\n");
         }
     }
 }
