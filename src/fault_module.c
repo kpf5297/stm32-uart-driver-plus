@@ -20,8 +20,8 @@ static Timestamp get_current_timestamp_local(void)
 {
     TickType_t ticks = xTaskGetTickCount();
     Timestamp ts;
-    ts.seconds = ticks / 1000;
-    ts.subseconds = ticks % 1000;
+    ts.seconds = ticks / TICKS_PER_SECOND;
+    ts.subseconds = ticks % TICKS_PER_SECOND;
     return ts;
 }
 
