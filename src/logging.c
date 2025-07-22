@@ -5,6 +5,7 @@
  *      Author: kevinfox
  */
 #include "logging.h"
+#include "fault_module.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -36,6 +37,7 @@ void log_init(uart_drv_t *drv)
     log_uart = drv;
     log_queue = xQueueCreate(LOG_QUEUE_DEPTH, sizeof(LogEntry));
     telemetry_queue = xQueueCreate(16, sizeof(TelemetryPacket));
+    fault_init();
 
     if (log_queue) {
         xTaskCreate(log_task, "Logger", LOG_TASK_STACK, NULL, LOG_TASK_PRIO, NULL);
@@ -78,6 +80,7 @@ static void log_task(void *arg)
 {
     LogEntry entry;
     char out_buf[256];
+    TickType_t last_fault_check = xTaskGetTickCount();
 
     for (;;) {
         // Process log queue first
@@ -102,6 +105,19 @@ static void log_task(void *arg)
                                pkt.sensor1, pkt.sensor2);
 
             uart_send_blocking(log_uart, (uint8_t *)out_buf, len, 100);
+        }
+
+        TickType_t now = xTaskGetTickCount();
+        if (now - last_fault_check >= pdMS_TO_TICKS(500)) {
+            last_fault_check = now;
+            if (fault_state.active_mask) {
+                Timestamp ts = get_current_timestamp();
+                int len = snprintf(out_buf, sizeof(out_buf),
+                                   "FLT,ACTIVE=0x%08lX,TIME=%lu.%03lus\r\n",
+                                   fault_state.active_mask,
+                                   ts.seconds, ts.subseconds);
+                uart_send_blocking(log_uart, (uint8_t *)out_buf, len, 100);
+            }
         }
     }
 }
