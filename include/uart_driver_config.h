@@ -32,4 +32,24 @@
 #define UART_BACKEND UART_BACKEND_HAL
 #endif
 
+/*******************************************************************************
+ * Tick source & critical‐section abstraction
+ ******************************************************************************/
+
+#ifdef USE_FREERTOS
+  #include "FreeRTOS.h"
+  #include "task.h"
+  #define TICKS_PER_SECOND       configTICK_RATE_HZ
+  #define GET_TICKS()            xTaskGetTickCount()
+  #define FAULT_ENTER_CRITICAL() taskENTER_CRITICAL()
+  #define FAULT_EXIT_CRITICAL()  taskEXIT_CRITICAL()
+#else
+  #include "stm32f4xx_hal.h"
+  #define TICKS_PER_SECOND       1000U
+  #define GET_TICKS()            HAL_GetTick()
+  #define FAULT_ENTER_CRITICAL() __disable_irq()
+  #define FAULT_EXIT_CRITICAL()  __enable_irq()
+#endif
+
+
 #endif /* UART_DRIVER_CONFIG_H */
