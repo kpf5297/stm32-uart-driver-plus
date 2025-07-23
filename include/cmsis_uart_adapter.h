@@ -36,10 +36,10 @@ static inline HAL_StatusTypeDef CMSIS_UART_Receive(ARM_DRIVER_USART *drv,
         CMSIS_UART_Transmit(huart, data, len, timeout)
 #define HAL_UART_Receive(huart, data, len, timeout) \
         CMSIS_UART_Receive(huart, data, len, timeout)
-#define HAL_UART_Transmit_IT(huart, data, len) CMSIS_UART_Transmit(huart, data, len, 0)
-#define HAL_UART_Receive_IT(huart, data, len)  CMSIS_UART_Receive(huart, data, len, 0)
-#define HAL_UART_Transmit_DMA(huart, data, len) CMSIS_UART_Transmit(huart, data, len, 0)
-#define HAL_UART_Receive_DMA(huart, data, len)  CMSIS_UART_Receive(huart, data, len, 0)
+#define HAL_UART_Transmit_IT(huart, data, len) CMSIS_UART_Transmit_IT(huart, data, len)
+#define HAL_UART_Receive_IT(huart, data, len)  CMSIS_UART_Receive_IT(huart, data, len)
+#define HAL_UART_Transmit_DMA(huart, data, len) CMSIS_UART_Transmit_DMA(huart, data, len)
+#define HAL_UART_Receive_DMA(huart, data, len)  CMSIS_UART_Receive_DMA(huart, data, len)
 
 #define __HAL_UART_CLEAR_OREFLAG(huart) do { (void)(huart); } while(0)
 #define __HAL_UART_CLEAR_FLAG(huart, flag) do { (void)(huart); (void)(flag); } while(0)
