@@ -41,13 +41,6 @@ These defaults are visible in [`uart_driver_config.h`](include/uart_driver_confi
    uart_send_blocking(&uart, data, len, timeout_ms);
    uart_receive_blocking(&uart, buf, len, timeout_ms);
    uart_send_nb(&uart, data, len);    // interrupt mode
-   uart_start_dma_rx(&uart, buf, len); // DMA mode
-   ```
-4. Register a callback to be notified from ISR context:
-   ```c
-   void my_uart_cb(uart_event_t evt, void *ctx);
-   uart_register_callback(&uart, my_uart_cb, NULL);
-   ```
 
 ## Command Interpreter
 

@@ -8,7 +8,7 @@
  * @brief Minimal example using uart_driver for echo functionality.
  *
  * Connect a terminal to USART2 (115200 baud). Characters are echoed using
- * the driver in DMA mode under FreeRTOS with a simple task and callback.
+ * the driver in DMA mode under FreeRTOS with a simple task.
 */
 
 UART_HandleTypeDef huart2;
@@ -21,9 +21,7 @@ osThreadId defaultTaskHandle;
 
 static uart_drv_t uart2_drv;
 
-static SemaphoreHandle_t rx_done_sem;
 
-static void uart_evt_cb(uart_event_t evt, void *user_ctx);
 
 void SystemClock_Config(void);
 
@@ -63,14 +61,12 @@ int main(void)
 
   MX_USART2_UART_Init();
 
-  rx_done_sem = xSemaphoreCreateBinary();
 
   if (uart_init(&uart2_drv, &huart2,
                  &hdma_usart2_tx, &hdma_usart2_rx) != UART_OK) {
       Error_Handler();
   }
 
-  uart_register_callback(&uart2_drv, uart_evt_cb, rx_done_sem);
 
 //  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
 
@@ -299,58 +295,15 @@ static void MX_GPIO_Init(void)
 }
 
 static void uart_echo_task(void *pv)
-
 {
-
     uint8_t c;
-
     for (;;) {
-
-        // wait for exactly 1 byte
-
-//        if (uart_receive_nb(&uart2_drv, &c, 1) == UART_OK) {
-
-        if (uart_start_dma_rx(&uart2_drv, &c, 1) == UART_OK) {
-
-            // block until that one byte arrives
-
-            if (xSemaphoreTake(rx_done_sem, portMAX_DELAY) == pdTRUE) {
-
-                // immediately echo it back
-
-//                uart_send_nb(&uart2_drv, &c, 1);
-
-            	uart_start_dma_tx(&uart2_drv, &c, 1);
-
-            }
-
+        if (uart_receive_blocking(&uart2_drv, &c, 1, HAL_MAX_DELAY) == UART_OK) {
+            uart_send_blocking(&uart2_drv, &c, 1, 100);
         }
-
     }
-
 }
 
-// UART event callback — called from ISR context
-
-static void uart_evt_cb(uart_event_t evt, void *user_ctx)
-
-{
-
-    BaseType_t higher_woken = pdFALSE;
-
-    if (evt == UART_EVT_RX_COMPLETE) {
-
-        // give the semaphore to wake the RX task
-
-        xSemaphoreGiveFromISR((SemaphoreHandle_t)user_ctx, &higher_woken);
-
-    }
-
-    // optionally handle TX_COMPLETE or ERROR events here …
-
-    portYIELD_FROM_ISR(higher_woken);
-
-}
 
 // Sender task — periodically transmit a message
 
@@ -379,35 +332,15 @@ static void uart_sender_task(void *pv)
 #define RX_BUF_LEN  32
 
 static void uart_receiver_task(void *pv)
-
 {
-
     uint8_t rx_buf[RX_BUF_LEN];
-
     for (;;) {
-
-        if (uart_receive_nb(&uart2_drv, rx_buf, RX_BUF_LEN) == UART_OK) {
-
-            // wait until the callback gives us the semaphore
-
-            if (xSemaphoreTake(rx_done_sem, portMAX_DELAY) == pdTRUE) {
-
-                // rx_buf now contains RX_BUF_LEN bytes (or fewer if your app tracks count)
-
-                // process your data here…
-
-            }
-
+        if (uart_receive_blocking(&uart2_drv, rx_buf, RX_BUF_LEN, HAL_MAX_DELAY) == UART_OK) {
+            // process your data here...
         } else {
-
-            // driver was busy; back off a bit
-
             vTaskDelay(pdMS_TO_TICKS(10));
-
         }
-
     }
-
 }
 
 /**
