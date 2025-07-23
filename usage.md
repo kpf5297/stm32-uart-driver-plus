@@ -36,7 +36,7 @@ These defaults are visible in [`uart_driver_config.h`](include/uart_driver_confi
    uart_drv_t uart;
    uart_init(&uart, &huart, &hdma_tx, &hdma_rx); // DMA handles may be NULL
    ```
-3. Use the blocking or non‑blocking APIs to transmit and receive:
+3. Use the blocking or non-blocking APIs to transmit and receive:
    ```c
    uart_send_blocking(&uart, data, len, timeout_ms);
    uart_receive_blocking(&uart, buf, len, timeout_ms);
