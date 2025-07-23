@@ -44,7 +44,7 @@ static inline HAL_StatusTypeDef CMSIS_UART_Receive(ARM_DRIVER_USART *drv,
 #define __HAL_UART_CLEAR_OREFLAG(huart) do { (void)(huart); } while(0)
 #define __HAL_UART_CLEAR_FLAG(huart, flag) do { (void)(huart); (void)(flag); } while(0)
 
-typedef ARM_DRIVER_USART UART_HandleTypeDef;
+typedef ARM_DRIVER_USART CMSIS_UART_HandleTypeDef;
 typedef void DMA_HandleTypeDef;
 
 #endif /* UART_BACKEND == UART_BACKEND_CMSIS */
