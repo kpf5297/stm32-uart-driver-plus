@@ -1,4 +1,3 @@
-
 #include "main.h"
 #include "cmsis_os.h"
 #include "uart_driver.h"
@@ -10,9 +9,10 @@
  * @file main_wCommand.c
  * @brief Example showing UART driver with CLI command interpreter.
  *
- * Connect USART2 to a terminal. The command interpreter provides `help`,
- * `echo` and `add` commands.
- */
+ * Connect USART2 to a terminal. The command interpreter registers the
+ * example commands from sample_commands.c and provides `help`, `echo`
+ * and `add` functionality.
+*/
 
 UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_tx;
@@ -41,40 +41,19 @@ static void uart_echo_task(void *pv);
 int main(void)
 {
 
-  
-
-  
-
   /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
 
-  
-
-  
-
   /* Configure the system clock */
   SystemClock_Config();
-
-  
-
-  
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_USART2_UART_Init();
-  
 
-  
-
-  
-  /* add mutexes, ... */
-  
-
-  
-  /* add semaphores, ... */
   rx_done_sem = xSemaphoreCreateBinary();
 
   // Initialize the UART driver
@@ -86,31 +65,17 @@ int main(void)
   // This registers the UART callback, creates the RTOS queue & task
   cmd_init(&uart2_drv);
 
-  
-
-  
-  /* start timers, add new ones, ... */
-  
-
-  
-  /* add queues, ... */
-  
-
   /* Create the thread(s) */
   /* definition and creation of defaultTask */
 //  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
 //  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
-  
-  /* add threads, ... */
 //  xTaskCreate(uart_sender_task,  "UART_SND",  256, NULL, tskIDLE_PRIORITY+1, NULL);
 //  xTaskCreate(uart_receiver_task,"UART_RCV",  256, NULL, tskIDLE_PRIORITY+1, NULL);
   xTaskCreate(uart_echo_task, "UART_ECHO", 256, NULL, tskIDLE_PRIORITY+1, NULL);
 
   const char *init_msg = "CLI ready";
   uart_send_blocking(&uart2_drv, (uint8_t*)init_msg, strlen(init_msg), 100);
-
-  
 
   /* Start scheduler */
 //  osKernelStart();
@@ -119,14 +84,12 @@ int main(void)
   /* We should never get here as control is now taken by the scheduler */
 
   /* Infinite loop */
-  
+
   while (1)
   {
-    
 
-    
   }
-  
+
 }
 
 /**
@@ -190,13 +153,6 @@ void SystemClock_Config(void)
 static void MX_USART2_UART_Init(void)
 {
 
-  
-
-  
-
-  
-
-  
   huart2.Instance = USART2;
   huart2.Init.BaudRate = 115200;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
@@ -209,11 +165,9 @@ static void MX_USART2_UART_Init(void)
   {
     Error_Handler();
   }
-  
+
 	HAL_NVIC_SetPriority(USART2_IRQn, 5, 0);
 	HAL_NVIC_EnableIRQ(USART2_IRQn);
-
-  
 
 }
 
@@ -244,9 +198,6 @@ static void MX_DMA_Init(void)
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-  
-
-  
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
@@ -274,9 +225,6 @@ static void MX_GPIO_Init(void)
   HAL_NVIC_SetPriority(EXTI15_10_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
-  
-
-  
 }
 
 static void uart_echo_task(void *pv)
@@ -352,13 +300,13 @@ static void uart_receiver_task(void *pv)
 
 void StartDefaultTask(void const * argument)
 {
-  
+
   /* Infinite loop */
   for(;;)
   {
     osDelay(1);
   }
-  
+
 }
 
 /**
@@ -371,16 +319,12 @@ void StartDefaultTask(void const * argument)
   */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-  
 
-  
   if (htim->Instance == TIM7)
   {
     HAL_IncTick();
   }
-  
 
-  
 }
 
 /**
@@ -389,13 +333,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   */
 void Error_Handler(void)
 {
-  
+
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
   while (1)
   {
   }
-  
+
 }
 #ifdef USE_FULL_ASSERT
 /**
@@ -407,9 +351,9 @@ void Error_Handler(void)
   */
 void assert_failed(uint8_t *file, uint32_t line)
 {
-  
+
   /* User can add his own implementation to report the file name and line number,
      ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-  
+
 }
 #endif /* USE_FULL_ASSERT */

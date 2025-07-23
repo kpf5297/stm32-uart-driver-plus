@@ -7,9 +7,9 @@
  * @file main_wDriver.c
  * @brief Minimal example using uart_driver for echo functionality.
  *
- * Connect a terminal to USART2 (115200 baud) and characters will be echoed
- * back to demonstrate the driver in DMA mode under FreeRTOS.
- */
+ * Connect a terminal to USART2 (115200 baud). Characters are echoed using
+ * the driver in DMA mode under FreeRTOS with a simple task and callback.
+*/
 
 UART_HandleTypeDef huart2;
 
@@ -65,10 +65,9 @@ int main(void)
 
   rx_done_sem = xSemaphoreCreateBinary();
 
-  if (uart_init(&uart2_drv, &huart2, &hdma_usart2_tx, &hdma_usart2_rx)) {
-
-	  // handle errors TODO
-
+  if (uart_init(&uart2_drv, &huart2,
+                 &hdma_usart2_tx, &hdma_usart2_rx) != UART_OK) {
+      Error_Handler();
   }
 
   uart_register_callback(&uart2_drv, uart_evt_cb, rx_done_sem);
