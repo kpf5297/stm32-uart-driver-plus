@@ -110,6 +110,9 @@ uart_status_t uart_receive_nb(uart_drv_t *drv, uint8_t *buf,  size_t len);
 uart_status_t uart_start_dma_tx(uart_drv_t *drv, uint8_t *data, size_t len);
 /** @brief Begin a DMA based receive. */
 uart_status_t uart_start_dma_rx(uart_drv_t *drv, uint8_t *buf,  size_t len);
+/** @brief Blocking transmit using DMA when available. */
+uart_status_t uart_send_dma_blocking(uart_drv_t *drv, uint8_t *data,
+                                     size_t len, uint32_t timeout_ms);
 
 /** Return number of bytes remaining in DMA RX buffer (0 if not using DMA). */
 size_t        uart_bytes_available(uart_drv_t *drv);

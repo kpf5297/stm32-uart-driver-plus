@@ -13,6 +13,7 @@ The following macros control feature inclusion and memory footprints. Adjust the
 |`CMD_MAX_PARAMS`|Maximum number of parameters parsed from a line.|
 |`CMD_TASK_PRIO`|FreeRTOS priority for the command interpreter task.|
 |`CMD_TASK_STACK`|Stack size for the command interpreter task in words.|
+|`CMD_TX_USE_DMA`|Use DMA for command responses when set.|
 |`LOGGING_ENABLED`|Enable the logging module when non-zero.| 
 |`TELEMETRY_ENABLED`|Enable the telemetry helper when non-zero.|
 |`LOG_TX_USE_DMA`|Use DMA for log transmissions when set.|

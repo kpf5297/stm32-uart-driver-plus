@@ -174,6 +174,41 @@ uart_status_t uart_start_dma_rx(uart_drv_t *drv, uint8_t *buf, size_t len) {
 #endif
 }
 
+// Blocking DMA transmit helper
+uart_status_t uart_send_dma_blocking(uart_drv_t *drv, uint8_t *data,
+                                     size_t len, uint32_t timeout_ms)
+{
+#if UART_BACKEND == UART_BACKEND_HAL
+    if (!drv->hdma_tx)
+        return UART_ERROR;
+    if (xSemaphoreTake(drv->tx_mutex, pdMS_TO_TICKS(timeout_ms)) != pdTRUE)
+        return UART_BUSY;
+
+    drv->status = UART_BUSY;
+    if (HAL_UART_Transmit_DMA(drv->huart, data, len) != HAL_OK) {
+        drv->status = UART_ERROR;
+        xSemaphoreGive(drv->tx_mutex);
+        return UART_ERROR;
+    }
+
+    TickType_t start = xTaskGetTickCount();
+    while (drv->status == UART_BUSY) {
+        if ((xTaskGetTickCount() - start) >= pdMS_TO_TICKS(timeout_ms)) {
+            drv->status = UART_ERROR;
+            xSemaphoreGive(drv->tx_mutex);
+            return UART_ERROR;
+        }
+        vTaskDelay(1);
+    }
+
+    xSemaphoreGive(drv->tx_mutex);
+    return drv->status;
+#else
+    (void)drv; (void)data; (void)len; (void)timeout_ms;
+    return UART_ERROR;
+#endif
+}
+
 // Buffer & status
 
 #if UART_BACKEND == UART_BACKEND_HAL

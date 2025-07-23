@@ -55,10 +55,9 @@ A professional, modular UART driver package for STM32 microcontrollers. Designed
 ## Configuration Flags
 
 All configuration options centralized in `uart_driver_config.h`:
-- `USE_DMA` or `USE_INTERRUPTS`
-- `ENABLE_COMMAND_INTERPRETER`
-- `ENABLE_LOGGING`
-- `ENABLE_TELEMETRY`
+- `CMD_TX_USE_DMA` to send command responses with DMA when a DMA handle is present
+- `LOG_TX_USE_DMA` to use DMA for log output
+- `TELEMETRY_TX_USE_DMA` to use DMA for telemetry
 - `UART_BACKEND` selection (`UART_BACKEND_HAL` or `UART_BACKEND_CMSIS`)
 - Task names, stack sizes, priorities.
 - Buffer sizes, queue depths.
