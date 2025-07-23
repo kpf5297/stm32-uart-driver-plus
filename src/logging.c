@@ -16,6 +16,24 @@ static QueueHandle_t log_queue = NULL;
 static QueueHandle_t telemetry_queue = NULL;
 static LogLevel current_level = LOG_LEVEL_INFO;
 
+static void log_tx(const uint8_t *data, size_t len, bool telemetry)
+{
+#if LOG_TX_USE_DMA
+    if (!telemetry && log_uart && log_uart->hdma_tx) {
+        uart_send_dma_blocking(log_uart, (uint8_t *)data, len, 100);
+        return;
+    }
+#endif
+#if TELEMETRY_TX_USE_DMA
+    if (telemetry && log_uart && log_uart->hdma_tx) {
+        uart_send_dma_blocking(log_uart, (uint8_t *)data, len, 100);
+        return;
+    }
+#endif
+    if (log_uart)
+        uart_send_blocking(log_uart, (uint8_t *)data, len, 100);
+}
+
 // Internal task prototype
 static void log_task(void *arg);
 
@@ -92,7 +110,7 @@ static void log_task(void *arg)
                                entry.level,
                                entry.payload);
 
-            uart_send_blocking(log_uart, (uint8_t *)out_buf, len, 100);
+            log_tx((const uint8_t *)out_buf, len, false);
         }
 
         // Then check telemetry queue
@@ -104,7 +122,7 @@ static void log_task(void *arg)
                                get_current_timestamp().subseconds,
                                pkt.sensor1, pkt.sensor2);
 
-            uart_send_blocking(log_uart, (uint8_t *)out_buf, len, 100);
+            log_tx((const uint8_t *)out_buf, len, true);
         }
 
         TickType_t now = xTaskGetTickCount();
@@ -116,7 +134,7 @@ static void log_task(void *arg)
                                    "FLT,ACTIVE=0x%08lX,TIME=%lu.%03lus\r\n",
                                    fault_state.active_mask,
                                    ts.seconds, ts.subseconds);
-                uart_send_blocking(log_uart, (uint8_t *)out_buf, len, 100);
+                log_tx((const uint8_t *)out_buf, len, false);
             }
         }
     }

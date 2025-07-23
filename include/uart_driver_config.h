@@ -9,6 +9,7 @@
 #define CMD_MAX_PARAMS        8
 #define CMD_TASK_PRIO         (tskIDLE_PRIORITY + 1)
 #define CMD_TASK_STACK        256
+#define CMD_TX_USE_DMA        0
 
 /* Logging and telemetry options */
 #define LOGGING_ENABLED       1

@@ -16,10 +16,22 @@ static QueueHandle_t rx_queue;
 static uart_drv_t   *uart;
 static uint8_t       rx_byte;
 
+static void cmd_tx_bytes(const uint8_t *buf, size_t len)
+{
+#if CMD_TX_USE_DMA
+    if (uart && uart->hdma_tx) {
+        uart_send_dma_blocking(uart, (uint8_t *)buf, len, 100);
+        return;
+    }
+#endif
+    if (uart)
+        uart_send_blocking(uart, (uint8_t *)buf, len, 100);
+}
+
 // Simple helpers for command handlers
 void cmd_write(const char *s) {
     if (uart && s) {
-        uart_send_blocking(uart, (uint8_t *)s, strlen(s), 100);
+        cmd_tx_bytes((const uint8_t *)s, strlen(s));
     }
 }
 
@@ -73,13 +85,13 @@ static void cmd_task(void *pvParameters) {
 
     // Print initial prompt
     const char *prompt = "\r\n> ";
-    uart_send_blocking(uart, (uint8_t*)prompt, strlen(prompt), 100);
+    cmd_tx_bytes((const uint8_t*)prompt, strlen(prompt));
 
     for (;;) {
         // Wait for next byte
         if (xQueueReceive(rx_queue, &byte, portMAX_DELAY) == pdPASS) {
             // Echo input
-            uart_send_blocking(uart, &byte, 1, 100);
+            cmd_tx_bytes(&byte, 1);
 
             // Check for end-of-line
             if (byte == '\r' || byte == '\n') {
@@ -105,12 +117,12 @@ static void cmd_task(void *pvParameters) {
                     }
                     if (!found) {
                         const char *err = "Error: unknown command\r\n";
-                        uart_send_blocking(uart, (uint8_t*)err, strlen(err), 100);
+                        cmd_tx_bytes((const uint8_t*)err, strlen(err));
                     }
                 }
                 idx = 0;
                 // Prompt again
-                uart_send_blocking(uart, (uint8_t*)"> ", 2, 100);
+                cmd_tx_bytes((const uint8_t*)"> ", 2);
 
             } else if ((byte == '\b' || byte == 127) && idx > 0) {
                 // Backspace handling
