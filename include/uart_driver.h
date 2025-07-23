@@ -15,7 +15,12 @@
 #include <stdbool.h>
 #include "FreeRTOS.h"
 #include "semphr.h"
+#include "uart_driver_config.h"
+#if UART_BACKEND == UART_BACKEND_HAL
 #include "stm32f4xx_hal.h"   // adjust to your STM32 series HAL header
+#else
+#include "cmsis_uart_adapter.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -46,21 +51,20 @@ typedef void (*uart_callback_t)(uart_event_t evt, void *user_ctx);
 /**
  * @brief Initialize a UART driver instance.
  *
- * Caller MUST have already:
- *  • called HAL_UART_Init(huart)
- *  • (optional) called HAL_DMA_Init(hdma_tx) / HAL_DMA_Init(hdma_rx)
- *  • configured NVIC for USART and DMA interrupts
- *
- * @param drv      pointer to your uart_drv_t storage (must live as long as you use it)
- * @param huart    pointer to an already-initialized UART_HandleTypeDef
- * @param hdma_tx  optional pointer to an already-initialized DMA_HandleTypeDef for TX (or NULL)
- * @param hdma_rx  optional pointer to an already-initialized DMA_HandleTypeDef for RX (or NULL)
- * @return UART_OK on success, UART_ERROR on failure (e.g. out of mutexes or too many instances)
+ * Caller MUST have already initialized the underlying hardware peripheral.
+ * The specific requirements depend on the selected backend (HAL or CMSIS).
  */
+#if UART_BACKEND == UART_BACKEND_HAL
 uart_status_t uart_init(uart_drv_t *drv,
                         UART_HandleTypeDef *huart,
                         DMA_HandleTypeDef  *hdma_tx,
                         DMA_HandleTypeDef  *hdma_rx);
+#else
+uart_status_t uart_init(uart_drv_t *drv,
+                        UART_HandleTypeDef *huart,
+                        void              *unused_tx,
+                        void              *unused_rx);
+#endif
 
 /**
  * @brief Deinitialize a driver instance (frees its mutexes).
@@ -70,10 +74,17 @@ void uart_deinit(uart_drv_t *drv);
 /**
  * @brief Swap in a different UART/DMA handle set at runtime.
  */
+#if UART_BACKEND == UART_BACKEND_HAL
 uart_status_t uart_reconfigure(uart_drv_t *drv,
                                UART_HandleTypeDef *huart,
                                DMA_HandleTypeDef  *hdma_tx,
                                DMA_HandleTypeDef  *hdma_rx);
+#else
+uart_status_t uart_reconfigure(uart_drv_t *drv,
+                               UART_HandleTypeDef *huart,
+                               void              *unused_tx,
+                               void              *unused_rx);
+#endif
 
 /**
  * @brief Transmit data in a blocking manner.
@@ -114,8 +125,10 @@ uart_status_t uart_get_status      (uart_drv_t *drv);
  */
 struct uart_drv_handle_s {
     UART_HandleTypeDef *huart;
+#if UART_BACKEND == UART_BACKEND_HAL
     DMA_HandleTypeDef  *hdma_tx;
     DMA_HandleTypeDef  *hdma_rx;
+#endif
     SemaphoreHandle_t   tx_mutex;
     SemaphoreHandle_t   rx_mutex;
     uart_callback_t     cb;

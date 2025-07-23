@@ -7,6 +7,7 @@
 // uart_driver.c
 
 #include "uart_driver.h"
+#include "uart_driver_config.h"
 
 #define UART_DRV_MAX_INSTANCES 4
 
@@ -34,18 +35,28 @@ static void notify_event(uart_drv_t *drv, uart_event_t evt) {
 
 uart_status_t uart_init(uart_drv_t *drv,
                         UART_HandleTypeDef *huart,
+#if UART_BACKEND == UART_BACKEND_HAL
                         DMA_HandleTypeDef  *hdma_tx,
                         DMA_HandleTypeDef  *hdma_rx)
+#else
+                        void              *unused_tx,
+                        void              *unused_rx)
+#endif
 {
     if (uart_instance_count >= UART_DRV_MAX_INSTANCES) {
         return UART_ERROR;
     }
-    drv->huart   = huart;
+    drv->huart = huart;
+#if UART_BACKEND == UART_BACKEND_HAL
     drv->hdma_tx = hdma_tx;
     drv->hdma_rx = hdma_rx;
     // Link DMA handles if provided
     if (drv->hdma_tx) drv->huart->hdmatx = drv->hdma_tx;
     if (drv->hdma_rx) drv->huart->hdmarx = drv->hdma_rx;
+#else
+    (void)unused_tx;
+    (void)unused_rx;
+#endif
     // Create mutexes
     drv->tx_mutex = xSemaphoreCreateMutex();
     drv->rx_mutex = xSemaphoreCreateMutex();
@@ -75,14 +86,24 @@ void uart_deinit(uart_drv_t *drv)
 
 uart_status_t uart_reconfigure(uart_drv_t *drv,
                                UART_HandleTypeDef *huart,
+#if UART_BACKEND == UART_BACKEND_HAL
                                DMA_HandleTypeDef  *hdma_tx,
                                DMA_HandleTypeDef  *hdma_rx)
+#else
+                               void              *unused_tx,
+                               void              *unused_rx)
+#endif
 {
-    drv->huart   = huart;
+    drv->huart = huart;
+#if UART_BACKEND == UART_BACKEND_HAL
     drv->hdma_tx = hdma_tx;
     drv->hdma_rx = hdma_rx;
     if (drv->hdma_tx) drv->huart->hdmatx = drv->hdma_tx;
     if (drv->hdma_rx) drv->huart->hdmarx = drv->hdma_rx;
+#else
+    (void)unused_tx;
+    (void)unused_rx;
+#endif
     drv->status = UART_OK;
     return UART_OK;
 }
@@ -130,24 +151,38 @@ uart_status_t uart_receive_nb(uart_drv_t *drv, uint8_t *buf, size_t len) {
 // DMA-driven APIs
 
 uart_status_t uart_start_dma_tx(uart_drv_t *drv, uint8_t *data, size_t len) {
+#if UART_BACKEND == UART_BACKEND_HAL
     if (!drv->hdma_tx) return UART_ERROR;
     return (HAL_UART_Transmit_DMA(drv->huart, data, len) == HAL_OK
             ? UART_OK : UART_ERROR);
+#else
+    (void)data; (void)len; (void)drv;
+    return UART_ERROR;
+#endif
 }
 
 uart_status_t uart_start_dma_rx(uart_drv_t *drv, uint8_t *buf, size_t len) {
+#if UART_BACKEND == UART_BACKEND_HAL
     if (!drv->hdma_rx) return UART_ERROR;
     return (HAL_UART_Receive_DMA(drv->huart, buf, len) == HAL_OK
             ? UART_OK : UART_ERROR);
+#else
+    (void)buf; (void)len; (void)drv;
+    return UART_ERROR;
+#endif
 }
 
 // Buffer & status
 
+#if UART_BACKEND == UART_BACKEND_HAL
 size_t uart_bytes_available(uart_drv_t *drv) {
-    return drv->hdma_rx
-           ? drv->hdma_rx->Instance->NDTR
-           : 0;
+    return drv->hdma_rx ? drv->hdma_rx->Instance->NDTR : 0;
 }
+#else
+size_t uart_bytes_available(uart_drv_t *drv) {
+    (void)drv; return 0;
+}
+#endif
 
 void uart_flush_rx(uart_drv_t *drv) {
     __HAL_UART_CLEAR_OREFLAG(drv->huart);

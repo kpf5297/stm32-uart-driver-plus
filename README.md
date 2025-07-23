@@ -59,6 +59,7 @@ All configuration options centralized in `uart_driver_config.h`:
 - `ENABLE_COMMAND_INTERPRETER`
 - `ENABLE_LOGGING`
 - `ENABLE_TELEMETRY`
+- `UART_BACKEND` selection (`UART_BACKEND_HAL` or `UART_BACKEND_CMSIS`)
 - Task names, stack sizes, priorities.
 - Buffer sizes, queue depths.
 
@@ -87,7 +88,7 @@ All configuration options centralized in `uart_driver_config.h`:
 ---
 
 ## Non-Functional Goals
-- **Portability:** HAL abstraction to allow reuse on any STM32 series.
+- **Portability:** Selectable backend for HAL or CMSIS drivers.
 - **Configurability:** All memory footprints tunable via config.
 - **Reliability:** Recovery from all reported errors without deadlock.
 - **Documentation:** Doxygen comments throughout; full user README.
