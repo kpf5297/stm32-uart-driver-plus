@@ -167,7 +167,9 @@ uart_status_t uart_start_dma_rx(uart_drv_t *drv, uint8_t *buf, size_t len) {
     return (HAL_UART_Receive_DMA(drv->huart, buf, len) == HAL_OK
             ? UART_OK : UART_ERROR);
 #else
-    (void)buf; (void)len; (void)drv;
+    (void)buf;
+    (void)len;
+    (void)drv;
     return UART_ERROR;
 #endif
 }
