@@ -23,4 +23,12 @@
 #define LOG_TASK_STACK        512
 #define LOG_TASK_PRIO         (tskIDLE_PRIORITY + 1)
 
+/* UART backend selection */
+#define UART_BACKEND_HAL   1
+#define UART_BACKEND_CMSIS 2
+/* Default backend uses HAL for backwards compatibility */
+#ifndef UART_BACKEND
+#define UART_BACKEND UART_BACKEND_HAL
+#endif
+
 #endif /* UART_DRIVER_CONFIG_H */
