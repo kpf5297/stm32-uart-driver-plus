@@ -67,4 +67,5 @@ Telemetry packets can be queued via `telemetry_send(&pkt);` when `TELEMETRY_ENAB
 
 ## Examples
 
-Complete integration examples using FreeRTOS are provided under [`examples/freertos_example`](examples/freertos_example). See `main_wDriver.c`, `main_wCommand.c` and `main_wLoggingCommand.c` for minimal and feature-rich setups.
+Complete integration examples using FreeRTOS are provided under [`examples/freertos_example`](examples/freertos_example). 
+`main_wo_Command.c` demonstrates a minimal setup without the command interpreter, while `main_w_Command.c` showcases a feature-rich setup with the command interpreter enabled.
