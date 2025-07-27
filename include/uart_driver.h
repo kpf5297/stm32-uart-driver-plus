@@ -16,11 +16,7 @@
 #include "FreeRTOS.h"
 #include "semphr.h"
 #include "uart_driver_config.h"
-#if UART_BACKEND == UART_BACKEND_HAL
 #include "stm32f4xx_hal.h"   // adjust to your STM32 series HAL header
-#else
-#include "cmsis_uart_adapter.h"
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,20 +47,12 @@ typedef void (*uart_callback_t)(uart_event_t evt, void *user_ctx);
 /**
  * @brief Initialize a UART driver instance.
  *
- * Caller MUST have already initialized the underlying hardware peripheral.
- * The specific requirements depend on the selected backend (HAL or CMSIS).
+ * Caller MUST have already initialized the underlying HAL UART peripheral.
  */
-#if UART_BACKEND == UART_BACKEND_HAL
 uart_status_t uart_init(uart_drv_t *drv,
                         UART_HandleTypeDef *huart,
                         DMA_HandleTypeDef  *hdma_tx,
                         DMA_HandleTypeDef  *hdma_rx);
-#else
-uart_status_t uart_init(uart_drv_t *drv,
-                        UART_HandleTypeDef *huart,
-                        void              *unused_tx,
-                        void              *unused_rx);
-#endif
 
 /**
  * @brief Deinitialize a driver instance (frees its mutexes).
@@ -74,17 +62,10 @@ void uart_deinit(uart_drv_t *drv);
 /**
  * @brief Swap in a different UART/DMA handle set at runtime.
  */
-#if UART_BACKEND == UART_BACKEND_HAL
 uart_status_t uart_reconfigure(uart_drv_t *drv,
                                UART_HandleTypeDef *huart,
                                DMA_HandleTypeDef  *hdma_tx,
                                DMA_HandleTypeDef  *hdma_rx);
-#else
-uart_status_t uart_reconfigure(uart_drv_t *drv,
-                               UART_HandleTypeDef *huart,
-                               void              *unused_tx,
-                               void              *unused_rx);
-#endif
 
 /**
  * @brief Transmit data in a blocking manner.
@@ -128,10 +109,8 @@ uart_status_t uart_get_status      (uart_drv_t *drv);
  */
 struct uart_drv_handle_s {
     UART_HandleTypeDef *huart;
-#if UART_BACKEND == UART_BACKEND_HAL
     DMA_HandleTypeDef  *hdma_tx;
     DMA_HandleTypeDef  *hdma_rx;
-#endif
     SemaphoreHandle_t   tx_mutex;
     SemaphoreHandle_t   rx_mutex;
     uart_callback_t     cb;
