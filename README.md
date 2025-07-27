@@ -60,7 +60,6 @@ All configuration options centralized in `uart_driver_config.h`:
 - `CMD_TX_USE_DMA` to send command responses with DMA when a DMA handle is present
 - `LOG_TX_USE_DMA` to use DMA for log output
 - `TELEMETRY_TX_USE_DMA` to use DMA for telemetry
-- `UART_BACKEND` selection (`UART_BACKEND_HAL` or `UART_BACKEND_CMSIS`)
 - Task names, stack sizes, priorities.
 - Buffer sizes, queue depths.
 
@@ -89,7 +88,7 @@ All configuration options centralized in `uart_driver_config.h`:
 ---
 
 ## Non-Functional Goals
-- **Portability:** Selectable backend for HAL or CMSIS drivers.
+- **Portability:** Uses the standard STM32 HAL drivers.
 - **Configurability:** All memory footprints tunable via config.
 - **Reliability:** Recovery from all reported errors without deadlock.
 - **Documentation:** Doxygen comments throughout; full user README.

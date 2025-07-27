@@ -25,13 +25,12 @@ The following macros control feature inclusion and memory footprints. Adjust the
 |`DEFAULT_LOG_LEVEL`|Initial severity filter for log messages.| 
 |`LOG_TASK_STACK`|Stack size for the log processing task.| 
 |`LOG_TASK_PRIO`|Priority of the log processing task.| 
-|`UART_BACKEND`|Selects driver backend: `UART_BACKEND_HAL` or `UART_BACKEND_CMSIS`.|
 
 These defaults are visible in [`uart_driver_config.h`](include/uart_driver_config.h).
 
 ## Basic Driver Setup
 
-1. Configure and initialize the underlying UART peripheral (HAL or CMSIS) before calling the driver.
+1. Configure and initialize the underlying UART peripheral using the STM32 HAL before calling the driver.
 2. Create a `uart_drv_t` instance and call:
    ```c
    uart_drv_t uart;
