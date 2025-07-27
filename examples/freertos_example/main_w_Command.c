@@ -55,16 +55,10 @@ int main(void)
   MX_USART2_UART_Init();
 
 
-  // Initialize the UART driver
-  if (uart_init(&uart2_drv, &huart2, &hdma_usart2_tx, &hdma_usart2_rx) != UART_OK) {
+  // Initialize the UART driver and enabled modules
+  if (uart_system_init(&uart2_drv, &huart2, &hdma_usart2_tx, &hdma_usart2_rx) != UART_OK) {
       Error_Handler();
   }
-
-  // Initialize the command interpreter
-  // This creates the RTOS queue & task
-  cmd_init(&uart2_drv);
-
-  log_init(&uart2_drv);
 
   /* Create the thread(s) */
   /* definition and creation of defaultTask */
