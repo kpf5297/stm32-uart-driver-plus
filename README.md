@@ -1,5 +1,7 @@
 # STM32 UART Driver Plus
 
+**Version 1.1**
+
 A professional, modular UART driver package for STM32 microcontrollers. Designed for robust integration in FreeRTOS-based systems, this package provides:
 
 - UART peripheral driver (interrupt and DMA modes)

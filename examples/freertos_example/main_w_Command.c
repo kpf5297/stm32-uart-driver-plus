@@ -7,7 +7,7 @@
 #include "logging.h"
 
 /**
- * @file main_wLoggingCommand.c
+ * @file main_w_Command.c
  * @brief Example using UART driver with CLI and logging modules.
  *
  * A terminal on USART2 can issue commands. The logging module outputs
