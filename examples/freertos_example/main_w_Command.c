@@ -2,7 +2,7 @@
 #include "cmsis_os.h"
 #include "uart_driver.h"
 #include <string.h>
-#include "sample_commands.h"
+#include "commands.h"
 #include "command_module.h"
 #include "logging.h"
 

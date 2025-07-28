@@ -1,10 +1,10 @@
 /*
- * sample_commands.c
+ * commands.c
  *
  *  Created on: Jul 20, 2025
  *      Author: kevinfox
  */
-#include "sample_commands.h"
+#include "commands.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

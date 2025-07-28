@@ -50,7 +50,7 @@ When `USE_CMD_INTERPRETER` is enabled call `cmd_init()` after initializing the U
 cmd_init(&uart);
 ```
 
-Commands are defined by filling a `Command` table (see [`sample_commands.c`](src/sample_commands.c)) and implementing handlers that accept an `Args *` structure.
+Commands are defined by filling a `Command` table (see [`commands.c`](src/commands.c)) and implementing handlers that accept an `Args *` structure.
 
 ## Logging and Telemetry
 

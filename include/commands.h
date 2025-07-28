@@ -1,8 +1,8 @@
-#ifndef SAMPLE_COMMANDS_H
-#define SAMPLE_COMMANDS_H
+#ifndef COMMANDS_H
+#define COMMANDS_H
 /**
- * @file sample_commands.h
- * @brief Example set of CLI command handlers.
+ * @file commands.h
+ * @brief CLI command handlers for demo application.
  */
 
 #include "command_module.h"
@@ -24,4 +24,4 @@ extern const Command cmd_list[];
 /** Number of commands in ::cmd_list. */
 extern const size_t  cmd_count;
 
-#endif // SAMPLE_COMMANDS_H
+#endif // COMMANDS_H

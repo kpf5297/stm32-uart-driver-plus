@@ -26,9 +26,7 @@ typedef struct {
     void      (*handler)(Args *args);
 } Command;
 
-/** Application-defined command table */
-extern const Command cmd_list[];
-extern const size_t  cmd_count;
+
 
 /**
  * @brief Initialize command interpreter.
