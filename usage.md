@@ -46,7 +46,7 @@ These defaults are visible in [`uart_driver_config.h`](include/uart_driver_confi
 
 `uart_system_init()` automatically starts the interpreter when `USE_CMD_INTERPRETER` is set. You can also call `cmd_init()` manually if finer control is required.
 
-Commands are defined by filling a `Command` table (see [`sample_commands.c`](src/sample_commands.c)) and implementing handlers that accept an `Args *` structure.
+Commands are defined by filling a `Command` table (see [`commands.c`](src/commands.c)) and implementing handlers that accept an `Args *` structure.
 
 ## Logging and Telemetry
 

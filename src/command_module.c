@@ -5,6 +5,7 @@
  *      Author: kevinfox
  */
 #include "command_module.h"
+#include "commands.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
