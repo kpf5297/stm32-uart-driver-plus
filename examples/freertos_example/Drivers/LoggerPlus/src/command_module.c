@@ -152,5 +152,9 @@ void cmd_init(uart_drv_t *uart_drv) {
     xTaskCreate(cmd_task, "CmdIf", CMD_TASK_STACK, NULL, CMD_TASK_PRIO, NULL);
 }
 
+uart_drv_t* cmd_get_uart_driver(void) {
+    return uart;
+}
+
 
 #endif // USE_CMD_INTERPRETER

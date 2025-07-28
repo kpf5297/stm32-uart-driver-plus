@@ -12,11 +12,15 @@
 #include "main.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include "uart_protocol.h"
 
 // External timer handle for PWM control
 extern TIM_HandleTypeDef htim2;
 // External ADC handle for analog readings
 extern ADC_HandleTypeDef hadc1;
+
+// Global protocol handle for binary communication
+static protocol_handle_t g_protocol_handle = {0};
 
 // Helper to send strings using command module UART
 static void send_str(const char *s) {
@@ -319,6 +323,68 @@ void cmd_adc(Args *args) {
     send_str("Unknown ADC command\r\n");
 }
 
+// 'protocol' command: manage binary protocol for C# GUI
+void cmd_protocol(Args *args) {
+    if (args->argc < 2) {
+        send_str("Usage: protocol <command>\r\n");
+        send_str("  init - initialize binary protocol\r\n");
+        send_str("  test - send test frame\r\n");
+        send_str("  info - show protocol information\r\n");
+        return;
+    }
+
+    if (strcmp(args->argv[1], "init") == 0) {
+        // Get UART driver from command module
+        uart_drv_t *cmd_uart = cmd_get_uart_driver();
+        
+        if (cmd_uart && protocol_init(&g_protocol_handle, cmd_uart)) {
+            send_str("Binary protocol initialized\r\n");
+        } else {
+            send_str("Failed to initialize protocol\r\n");
+        }
+        return;
+    }
+
+    if (strcmp(args->argv[1], "info") == 0) {
+        char buf[128];
+        snprintf(buf, sizeof(buf), "Protocol Info:\r\n  Start: 0x%02X\r\n  End: 0x%02X\r\n  Max Data: %d bytes\r\n", 
+                 PROTOCOL_START_BYTE, PROTOCOL_END_BYTE, PROTOCOL_MAX_DATA_LEN);
+        send_str(buf);
+        send_str("Commands:\r\n");
+        send_str("  0x01: PING\r\n");
+        send_str("  0x10-0x13: PWM Control\r\n");
+        send_str("  0x20-0x25: ADC Control\r\n");
+        send_str("  0x30: System Info\r\n");
+        return;
+    }
+
+    if (strcmp(args->argv[1], "test") == 0) {
+        if (!g_protocol_handle.initialized) {
+            send_str("Protocol not initialized. Run 'protocol init' first.\r\n");
+            return;
+        }
+        
+        // Create a test ping frame
+        protocol_frame_t test_frame = {0};
+        test_frame.start_byte = PROTOCOL_START_BYTE;
+        test_frame.cmd_id = CMD_PING;
+        test_frame.data_len = 0;
+        test_frame.checksum = protocol_calculate_checksum(&test_frame);
+        test_frame.end_byte = PROTOCOL_END_BYTE;
+        
+        // Process the test frame
+        protocol_process_data(&g_protocol_handle, (uint8_t*)&test_frame, 
+                             sizeof(test_frame.start_byte) + sizeof(test_frame.cmd_id) + 
+                             sizeof(test_frame.data_len) + test_frame.data_len + 
+                             sizeof(test_frame.checksum) + sizeof(test_frame.end_byte));
+        
+        send_str("Test frame sent and processed\r\n");
+        return;
+    }
+
+    send_str("Unknown protocol command\r\n");
+}
+
 // Define command table and expose to interpreter
 const Command cmd_list[] = {
     { "help", cmd_help },
@@ -328,6 +394,7 @@ const Command cmd_list[] = {
     { "fault_clear", cmd_fault_clear },
     { "pwm", cmd_pwm },
     { "adc", cmd_adc },
+    { "protocol", cmd_protocol },
 };
 const size_t cmd_count = sizeof(cmd_list) / sizeof(cmd_list[0]);
 

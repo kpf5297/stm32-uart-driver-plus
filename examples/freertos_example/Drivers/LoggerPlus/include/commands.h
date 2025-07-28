@@ -22,6 +22,8 @@ void cmd_fault_clear(Args *args);
 void cmd_pwm(Args *args);
 /** Read ADC values and control ADC conversion. */
 void cmd_adc(Args *args);
+/** Manage binary protocol for C# GUI communication. */
+void cmd_protocol(Args *args);
 
 /** Table of available commands. */
 extern const Command cmd_list[];

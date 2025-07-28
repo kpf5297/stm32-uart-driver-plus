@@ -50,6 +50,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Drivers/LoggerPlus/src/fault_module.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Drivers/LoggerPlus/src/logging.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Drivers/LoggerPlus/src/uart_driver.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Drivers/LoggerPlus/src/uart_protocol.c
 )
 
 

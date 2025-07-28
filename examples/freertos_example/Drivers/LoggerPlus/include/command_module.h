@@ -39,6 +39,8 @@ void cmd_init(uart_drv_t *uart);
 void cmd_write(const char *s);
 /** printf style helper using the interpreter's UART. */
 void cmd_printf(const char *fmt, ...);
+/** Get the UART driver used by the command interpreter. */
+uart_drv_t* cmd_get_uart_driver(void);
 
 #endif // USE_CMD_INTERPRETER
 #endif // COMMAND_MODULE_H
