@@ -55,6 +55,18 @@ uart_status_t uart_init(uart_drv_t *drv,
                         DMA_HandleTypeDef  *hdma_rx);
 
 /**
+ * @brief Convenience initializer that also sets up optional modules.
+ *
+ * This will invoke @ref uart_init and then call @ref cmd_init and
+ * @ref log_init automatically when the corresponding feature macros
+ * are enabled in `uart_driver_config.h`.
+ */
+uart_status_t uart_system_init(uart_drv_t *drv,
+                               UART_HandleTypeDef *huart,
+                               DMA_HandleTypeDef  *hdma_tx,
+                               DMA_HandleTypeDef  *hdma_rx);
+
+/**
  * @brief Deinitialize a driver instance (frees its mutexes).
  */
 void uart_deinit(uart_drv_t *drv);

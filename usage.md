@@ -34,7 +34,7 @@ These defaults are visible in [`uart_driver_config.h`](include/uart_driver_confi
 2. Create a `uart_drv_t` instance and call:
    ```c
    uart_drv_t uart;
-   uart_init(&uart, &huart, &hdma_tx, &hdma_rx); // DMA handles may be NULL
+   uart_system_init(&uart, &huart, &hdma_tx, &hdma_rx); // DMA handles may be NULL
    ```
 3. Use the blocking or non-blocking APIs to transmit and receive:
    ```c
@@ -44,21 +44,15 @@ These defaults are visible in [`uart_driver_config.h`](include/uart_driver_confi
 
 ## Command Interpreter
 
-When `USE_CMD_INTERPRETER` is enabled call `cmd_init()` after initializing the UART driver:
-
-```c
-cmd_init(&uart);
-```
+`uart_system_init()` automatically starts the interpreter when `USE_CMD_INTERPRETER` is set. You can also call `cmd_init()` manually if finer control is required.
 
 Commands are defined by filling a `Command` table (see [`sample_commands.c`](src/sample_commands.c)) and implementing handlers that accept an `Args *` structure.
 
 ## Logging and Telemetry
 
-If `LOGGING_ENABLED` is set, initialize the logger with:
-```c
-log_init(&uart);
-```
-Then log messages from any task:
+When `LOGGING_ENABLED` is non-zero, `uart_system_init()` invokes
+`log_init()` automatically. You can still call `log_init()` yourself
+if the driver was brought up manually. Then log messages from any task:
 ```c
 log_write(LOG_LEVEL_INFO, "Started");
 ```

@@ -47,7 +47,7 @@ A professional, modular UART driver package for STM32 microcontrollers. Designed
 - Configure queue sizes, stack sizes, priorities.
 
 ### FreeRTOS Integration
-- Initialization API: `UART_Driver_Init()`
+- Initialization helper: `uart_system_init()`
 - Optional task creation for Command and Logging modules.
 - Weak task definitions allow user override.
 - Clean shutdown API provided.

@@ -45,8 +45,7 @@ int main(void)
   MX_ADC1_Init();
   MX_TIM2_Init();
 
-  uart_init(&shared_uart, &huart2, &hdma_usart2_tx, &hdma_usart2_rx);
-  log_init(&shared_uart);
+  uart_system_init(&shared_uart, &huart2, &hdma_usart2_tx, &hdma_usart2_rx);
   log_write(LOG_LEVEL_INFO, "Started");
 
   osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);

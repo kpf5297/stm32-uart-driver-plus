@@ -8,6 +8,12 @@
 
 #include "uart_driver.h"
 #include "uart_driver_config.h"
+#if USE_CMD_INTERPRETER
+#include "command_module.h"
+#endif
+#if LOGGING_ENABLED
+#include "logging.h"
+#endif
 
 #define UART_DRV_MAX_INSTANCES 4
 
@@ -190,6 +196,24 @@ void uart_flush_tx(uart_drv_t *drv) {
 
 uart_status_t uart_get_status(uart_drv_t *drv) {
     return drv->status;
+}
+
+uart_status_t uart_system_init(uart_drv_t *drv,
+                               UART_HandleTypeDef *huart,
+                               DMA_HandleTypeDef  *hdma_tx,
+                               DMA_HandleTypeDef  *hdma_rx)
+{
+    uart_status_t ret = uart_init(drv, huart, hdma_tx, hdma_rx);
+    if (ret != UART_OK)
+        return ret;
+
+#if USE_CMD_INTERPRETER
+    cmd_init(drv);
+#endif
+#if LOGGING_ENABLED
+    log_init(drv);
+#endif
+    return UART_OK;
 }
 
 // Callback registration
