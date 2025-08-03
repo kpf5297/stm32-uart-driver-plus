@@ -1,8 +1,92 @@
 # STM32 UART Driver Plus
 
-**Version 1.1**
+**Version 1.2 - Now with CMSIS/FreeRTOS/LL Support**
 
-A professional, modular UART driver package for STM32 microcontrollers. Designed for robust integration in FreeRTOS-based systems, this package provides:
+A professional, modular UART driver package for STM32 microcontrollers. Designed for robust integration in FreeRTOS-based systems with support for both HAL and LL (Low Layer) drivers.
+
+## 🆕 New in Version 1.2
+
+- **LL (Low Layer) Driver Support** - Choose between HAL and LL for optimal performance
+- **Enhanced CMSIS-RTOS Integration** - Full compatibility with CMSIS-RTOS v1/v2
+- **Improved FreeRTOS Support** - Better task-safe operations and resource management
+- **Unified Abstraction Layer** - Seamless switching between HAL and LL backends
+- **Performance Optimizations** - Lower memory footprint and faster execution with LL
+
+## Supported Configurations
+
+| Driver Layer | RTOS | Performance | Memory Usage | Complexity |
+|-------------|------|-------------|--------------|------------|
+| **HAL** | None | Good | Medium | Low |
+| **HAL** | FreeRTOS | Good | High | Low |
+| **HAL** | CMSIS-RTOS | Good | High | Low |
+| **LL** | None | Excellent | Low | High |
+| **LL** | FreeRTOS | Excellent | Medium | Medium |
+| **LL** | CMSIS-RTOS | Excellent | Medium | Medium |
+
+---
+
+## Quick Start
+
+### 1. Choose Your Configuration
+
+Edit `include/uart_driver_config.h`:
+
+```c
+/* Driver Layer Selection */
+#define USE_STM32_LL_DRIVERS  0    // 0=HAL (easier), 1=LL (faster)
+
+/* RTOS Support */
+#define USE_FREERTOS          1    // Enable FreeRTOS
+#define USE_CMSIS_RTOS        1    // Enable CMSIS-RTOS wrapper
+```
+
+### 2. HAL + FreeRTOS (Recommended for beginners)
+
+```c
+#include "uart_driver.h"
+
+// Initialize your HAL peripherals first
+UART_HandleTypeDef huart2;
+// ... configure huart2 ...
+
+// Initialize UART driver
+uart_drv_t uart_driver;
+uart_system_init(&uart_driver, &huart2, NULL, NULL);
+
+// Use in FreeRTOS task
+void uart_task(void *pvParameters) {
+    uint8_t data[] = "Hello World!
+";
+    uart_send_blocking(&uart_driver, data, strlen((char*)data), 1000);
+}
+```
+
+### 3. LL + FreeRTOS (Recommended for performance)
+
+```c
+#include "uart_driver.h"
+
+// Configure LL peripherals first
+// ... LL initialization code ...
+
+// Initialize UART driver
+uart_drv_t uart_driver;
+uart_system_init_ll(&uart_driver, USART2, DMA1, DMA1, 
+                    LL_DMA_STREAM_6, LL_DMA_STREAM_5);
+
+// Use with same API as HAL version
+uint8_t data[] = "Hello LL World!
+";
+uart_send_blocking(&uart_driver, data, strlen((char*)data), 1000);
+```
+
+### 4. Examples
+
+- **`examples/freertos_example/`** - Complete HAL + FreeRTOS project
+- **`examples/freertos_ll_example.c`** - LL + FreeRTOS implementation
+- **See `CMSIS_FREERTOS_LL_GUIDE.md`** for detailed configuration guide
+
+---
 
 - UART peripheral driver (interrupt and DMA modes)
 - Thread-safe APIs with mutex protection
@@ -16,14 +100,17 @@ A professional, modular UART driver package for STM32 microcontrollers. Designed
 ## Features
 
 ### UART Driver Module
+
 - Initialize UART with configurable baud rate, data bits, parity, stop bits.
 - Transmit/receive in interrupt or DMA mode.
+- **NEW**: Support for both HAL and LL (Low Layer) drivers
 - APIs:
   - `uart_send(uint8_t *data, size_t len)`
   - `uart_receive(uint8_t *buf, size_t len)`
   - Non-blocking versions with status return.
 - Error handling and reporting (overrun, framing, noise).
 - Mutex-protected, thread-safe design.
+- **NEW**: Enhanced CMSIS-RTOS compatibility
 
 ### Command Interpreter Module
 - Compile-time registration of commands via a struct table.

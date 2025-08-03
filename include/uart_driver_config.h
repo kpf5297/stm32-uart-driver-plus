@@ -3,6 +3,19 @@
 
 /* Configuration options for UART driver modules */
 
+/*******************************************************************************
+ * STM32 Driver Layer Selection
+ ******************************************************************************/
+/* Choose which STM32 driver layer to use:
+ * 0 = HAL (Hardware Abstraction Layer)
+ * 1 = LL (Low Layer) 
+ */
+#define USE_STM32_LL_DRIVERS  0
+
+/* FreeRTOS/CMSIS-RTOS Support */
+#define USE_FREERTOS          1
+#define USE_CMSIS_RTOS        1
+
 /* Command interpreter options */
 #define USE_CMD_INTERPRETER   1
 #define CMD_MAX_LINE_LEN      128
@@ -32,12 +45,24 @@
 #ifdef USE_FREERTOS
   #include "FreeRTOS.h"
   #include "task.h"
+  #include "semphr.h"
+  #ifdef USE_CMSIS_RTOS
+    #include "cmsis_os.h"
+  #endif
   #define TICKS_PER_SECOND       configTICK_RATE_HZ
   #define GET_TICKS()            xTaskGetTickCount()
   #define FAULT_ENTER_CRITICAL() taskENTER_CRITICAL()
   #define FAULT_EXIT_CRITICAL()  taskEXIT_CRITICAL()
 #else
-  #include "stm32f4xx_hal.h"
+  /* Bare metal or other RTOS */
+  #if USE_STM32_LL_DRIVERS
+    #include "stm32f4xx_ll_usart.h"
+    #include "stm32f4xx_ll_dma.h"
+    #include "stm32f4xx_ll_gpio.h"
+    #include "stm32f4xx_ll_rcc.h"
+  #else
+    #include "stm32f4xx_hal.h"
+  #endif
   #define TICKS_PER_SECOND       1000U
   #define GET_TICKS()            HAL_GetTick()
   #define FAULT_ENTER_CRITICAL() __disable_irq()
