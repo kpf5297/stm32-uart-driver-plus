@@ -34,8 +34,11 @@ static void log_tx(const uint8_t *data, size_t len, bool telemetry)
         uart_send_blocking(log_uart, (uint8_t *)data, len, 100);
 }
 
-// Internal task prototype
+// Internal task prototypes
 static void log_task(void *arg);
+static void process_log_queue(char *out_buf, size_t len);
+static void process_telemetry_queue(char *out_buf, size_t len);
+static void perform_fault_check(char *out_buf, size_t len);
 
 
 // Fully contained timestamp stub
@@ -92,50 +95,66 @@ void telemetry_send(const TelemetryPacket *pkt)
 #endif
 }
 
+void log_set_level(LogLevel level)
+{
+#if LOGGING_ENABLED
+    current_level = level;
+#endif
+}
+
 
 // Logging task: drain queue and transmit
 static void log_task(void *arg)
 {
-    LogEntry entry;
     char out_buf[256];
-    TickType_t last_fault_check = xTaskGetTickCount();
 
     for (;;) {
-        // Process log queue first
-        if (xQueueReceive(log_queue, &entry, pdMS_TO_TICKS(10)) == pdPASS) {
-            int len = snprintf(out_buf, sizeof(out_buf),
+        process_log_queue(out_buf, sizeof(out_buf));
+        process_telemetry_queue(out_buf, sizeof(out_buf));
+        perform_fault_check(out_buf, sizeof(out_buf));
+    }
+}
+
+static void process_log_queue(char *out_buf, size_t len)
+{
+    LogEntry entry;
+    if (xQueueReceive(log_queue, &entry, pdMS_TO_TICKS(10)) == pdPASS) {
+        int out_len = snprintf(out_buf, len,
                                "[%lu.%03lu] [%d] %s\r\n",
                                entry.ts.seconds,
                                entry.ts.subseconds,
                                entry.level,
                                entry.payload);
+        log_tx((const uint8_t *)out_buf, out_len, false);
+    }
+}
 
-            log_tx((const uint8_t *)out_buf, len, false);
-        }
-
-        // Then check telemetry queue
-        TelemetryPacket pkt;
-        if (xQueueReceive(telemetry_queue, &pkt, 0) == pdPASS) {
-            int len = snprintf(out_buf, sizeof(out_buf),
+static void process_telemetry_queue(char *out_buf, size_t len)
+{
+    TelemetryPacket pkt;
+    if (xQueueReceive(telemetry_queue, &pkt, 0) == pdPASS) {
+        int out_len = snprintf(out_buf, len,
                                "[%lu.%03lu] TLM sensor1=%lu sensor2=%.2f\r\n",
                                get_current_timestamp().seconds,
                                get_current_timestamp().subseconds,
                                pkt.sensor1, pkt.sensor2);
+        log_tx((const uint8_t *)out_buf, out_len, true);
+    }
+}
 
-            log_tx((const uint8_t *)out_buf, len, true);
-        }
-
-        TickType_t now = xTaskGetTickCount();
-        if (now - last_fault_check >= pdMS_TO_TICKS(500)) {
-            last_fault_check = now;
-            if (fault_state.active_mask) {
-                Timestamp ts = get_current_timestamp();
-                int len = snprintf(out_buf, sizeof(out_buf),
+static void perform_fault_check(char *out_buf, size_t len)
+{
+    static TickType_t last_fault_check = 0;
+    TickType_t now = xTaskGetTickCount();
+    if (now - last_fault_check >= pdMS_TO_TICKS(500)) {
+        last_fault_check = now;
+        if (fault_state.active_mask) {
+            Timestamp ts = get_current_timestamp();
+            int out_len = snprintf(out_buf, len,
                                    "FLT,ACTIVE=0x%08lX,TIME=%lu.%03lus\r\n",
                                    fault_state.active_mask,
                                    ts.seconds, ts.subseconds);
-                log_tx((const uint8_t *)out_buf, len, false);
-            }
+            log_tx((const uint8_t *)out_buf, out_len, false);
         }
     }
 }
