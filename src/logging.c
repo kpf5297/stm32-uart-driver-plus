@@ -18,15 +18,18 @@ static LogLevel current_level = LOG_LEVEL_INFO;
 
 static void log_tx(const uint8_t *data, size_t len, bool telemetry)
 {
-#if LOG_TX_USE_DMA
-    if (!telemetry && log_uart && log_uart->hdma_tx) {
+#if UART_TX_MODE == UART_MODE_DMA
+    if (log_uart && log_uart->hdma_tx) {
         uart_send_dma_blocking(log_uart, (uint8_t *)data, len, 100);
         return;
     }
-#endif
-#if TELEMETRY_TX_USE_DMA
-    if (telemetry && log_uart && log_uart->hdma_tx) {
-        uart_send_dma_blocking(log_uart, (uint8_t *)data, len, 100);
+#elif UART_TX_MODE == UART_MODE_INTERRUPT
+    if (log_uart) {
+        if (uart_send_nb(log_uart, (uint8_t *)data, len) == UART_OK) {
+            while (uart_get_status(log_uart) == UART_BUSY) {
+                vTaskDelay(1);
+            }
+        }
         return;
     }
 #endif

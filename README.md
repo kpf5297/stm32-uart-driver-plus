@@ -143,12 +143,11 @@ uart_send_blocking(&uart_driver, data, strlen((char*)data), 1000);
 
 ## Configuration Flags
 
-All configuration options centralized in `uart_driver_config.h`:
-- `CMD_TX_USE_DMA` to send command responses with DMA when a DMA handle is present
-- `LOG_TX_USE_DMA` to use DMA for log output
-- `TELEMETRY_TX_USE_DMA` to use DMA for telemetry
-- Task names, stack sizes, priorities.
-- Buffer sizes, queue depths.
+All configuration options are centralized in `uart_driver_config.h`:
+- `UART_TX_MODE` selects blocking, interrupt, or DMA operation globally
+- `USE_CMD_INTERPRETER`, `LOGGING_ENABLED`, `TELEMETRY_ENABLED` toggle optional modules
+- Task names, stack sizes, priorities
+- Buffer sizes, queue depths
 
 ---
 

@@ -3,26 +3,31 @@
 
 /* Configuration options for UART driver modules */
 
+/* Global UART transmission mode */
+#define UART_MODE_BLOCKING   0
+#define UART_MODE_INTERRUPT  1
+#define UART_MODE_DMA        2
+#define UART_TX_MODE         UART_MODE_BLOCKING
+
+/* Feature enable macros */
+#define USE_CMD_INTERPRETER  1
+#define LOGGING_ENABLED      1
+#define TELEMETRY_ENABLED    1
+
 /* Command interpreter options */
-#define USE_CMD_INTERPRETER   1
-#define CMD_MAX_LINE_LEN      128
-#define CMD_MAX_PARAMS        8
-#define CMD_TASK_PRIO         (tskIDLE_PRIORITY + 1)
-#define CMD_TASK_STACK        256
-#define CMD_TX_USE_DMA        0
+#define CMD_MAX_LINE_LEN     128
+#define CMD_MAX_PARAMS       8
+#define CMD_TASK_PRIO        (tskIDLE_PRIORITY + 1)
+#define CMD_TASK_STACK       256
 
 /* Logging and telemetry options */
-#define LOGGING_ENABLED       1
-#define TELEMETRY_ENABLED     1
-#define LOG_TX_USE_DMA        0
-#define TELEMETRY_TX_USE_DMA  0
-#define LOG_QUEUE_DEPTH       32
+#define LOG_QUEUE_DEPTH      32
 #define TELEMETRY_QUEUE_DEPTH 16
-#define MAX_LOG_PAYLOAD       128
+#define MAX_LOG_PAYLOAD      128
 #define MAX_TELEMETRY_PAYLOAD 64
-#define DEFAULT_LOG_LEVEL     LOG_LEVEL_INFO
-#define LOG_TASK_STACK        512
-#define LOG_TASK_PRIO         (tskIDLE_PRIORITY + 1)
+#define DEFAULT_LOG_LEVEL    LOG_LEVEL_INFO
+#define LOG_TASK_STACK       512
+#define LOG_TASK_PRIO        (tskIDLE_PRIORITY + 1)
 
 
 /*******************************************************************************

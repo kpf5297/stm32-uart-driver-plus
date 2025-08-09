@@ -19,9 +19,18 @@ static uint8_t       rx_byte;
 
 static void cmd_tx_bytes(const uint8_t *buf, size_t len)
 {
-#if CMD_TX_USE_DMA
+#if UART_TX_MODE == UART_MODE_DMA
     if (uart && uart->hdma_tx) {
         uart_send_dma_blocking(uart, (uint8_t *)buf, len, 100);
+        return;
+    }
+#elif UART_TX_MODE == UART_MODE_INTERRUPT
+    if (uart) {
+        if (uart_send_nb(uart, (uint8_t *)buf, len) == UART_OK) {
+            while (uart_get_status(uart) == UART_BUSY) {
+                vTaskDelay(1);
+            }
+        }
         return;
     }
 #endif
