@@ -5,14 +5,14 @@
  * @brief Lightweight UART command interpreter.
  */
 
+#include "uart_driver.h"
+#include "uart_driver_config.h"
+
+#if USE_CMD_INTERPRETER
 #include "FreeRTOS.h"
 #include "queue.h"
 #include "task.h"
-#include "uart_driver.h"
-#include "uart_driver_config.h"
-#include <stdbool.h>
-
-#if USE_CMD_INTERPRETER
+#endif
 
 /** Parsed argument list provided to command handlers. */
 typedef struct {
@@ -26,7 +26,7 @@ typedef struct {
     void      (*handler)(Args *args);
 } Command;
 
-
+#if USE_CMD_INTERPRETER
 
 /**
  * @brief Initialize command interpreter.
@@ -41,6 +41,13 @@ void cmd_write(const char *s);
 void cmd_printf(const char *fmt, ...);
 /** Get the UART driver used by the command interpreter. */
 uart_drv_t* cmd_get_uart_driver(void);
+
+#else
+
+static inline void cmd_init(uart_drv_t *uart) {(void)uart;}
+static inline void cmd_write(const char *s) {(void)s;}
+static inline void cmd_printf(const char *fmt, ...) {(void)fmt;}
+static inline uart_drv_t* cmd_get_uart_driver(void) {return NULL;}
 
 #endif // USE_CMD_INTERPRETER
 #endif // COMMAND_MODULE_H
