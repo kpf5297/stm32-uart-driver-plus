@@ -56,25 +56,19 @@ int main(void)
     MX_DMA_Init_LL();
     MX_USART2_UART_Init_LL();
     
-    /* Initialize UART driver with LL backend */
-    uart_status_t uart_result = uart_init_ll(&main_uart, 
-                                             USART2,        // LL UART instance
-                                             DMA1,          // TX DMA instance
-                                             DMA1,          // RX DMA instance  
-                                             LL_DMA_STREAM_6, // TX stream
-                                             LL_DMA_STREAM_5); // RX stream
-    
+    /* Initialize UART driver with LL backend and optional modules */
+    uart_status_t uart_result = uart_system_init_ll(&main_uart,
+                                                   USART2,        // LL UART instance
+                                                   DMA1,          // TX DMA instance
+                                                   DMA1,          // RX DMA instance
+                                                   LL_DMA_STREAM_6, // TX stream
+                                                   LL_DMA_STREAM_5); // RX stream
+
     if (uart_result != UART_OK) {
         Error_Handler();
     }
-    
-    /* Initialize optional modules */
-#if USE_CMD_INTERPRETER
-    cmd_init(&main_uart);
-#endif
 
 #if LOGGING_ENABLED
-    log_init(&main_uart);
     LOG_INFO("STM32 UART Driver Plus - LL Example Started");
     LOG_INFO("Configuration: LL drivers + FreeRTOS");
 #endif
@@ -125,11 +119,8 @@ static void UART_Communication_Task(void *pvParameters)
             
             /* Process command if newline received */
             if (rx_buffer[0] == '\r' || rx_buffer[0] == '\n') {
-#if USE_CMD_INTERPRETER
-                /* Command interpreter will handle the command */
-                cmd_process_line();
-#endif
-                
+                /* Command interpreter will automatically handle the command */
+
                 /* Send periodic status message */
                 char status_msg[64];
                 snprintf(status_msg, sizeof(status_msg), 
