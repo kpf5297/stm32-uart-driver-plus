@@ -8,23 +8,21 @@ The following macros control feature inclusion and memory footprints. Adjust the
 
 | Macro | Description |
 |-------|-------------|
-|`USE_CMD_INTERPRETER`|Set to `1` to enable the command interpreter task.| 
+|`UART_TX_MODE`|0=blocking, 1=interrupt, 2=DMA for all modules.|
+|`USE_CMD_INTERPRETER`|Set to `1` to enable the command interpreter task.|
+|`LOGGING_ENABLED`|Enable the logging module when non-zero.|
+|`TELEMETRY_ENABLED`|Enable the telemetry helper when non-zero.|
 |`CMD_MAX_LINE_LEN`|Maximum length of a received command line.|
 |`CMD_MAX_PARAMS`|Maximum number of parameters parsed from a line.|
 |`CMD_TASK_PRIO`|FreeRTOS priority for the command interpreter task.|
 |`CMD_TASK_STACK`|Stack size for the command interpreter task in words.|
-|`CMD_TX_USE_DMA`|Use DMA for command responses when set.|
-|`LOGGING_ENABLED`|Enable the logging module when non-zero.| 
-|`TELEMETRY_ENABLED`|Enable the telemetry helper when non-zero.|
-|`LOG_TX_USE_DMA`|Use DMA for log transmissions when set.|
-|`TELEMETRY_TX_USE_DMA`|Use DMA when sending telemetry packets.|
-|`LOG_QUEUE_DEPTH`|Depth of the internal log queue.| 
-|`TELEMETRY_QUEUE_DEPTH`|Depth of the telemetry queue.| 
-|`MAX_LOG_PAYLOAD`|Maximum characters stored for each log entry.| 
-|`MAX_TELEMETRY_PAYLOAD`|Maximum payload bytes in a telemetry packet.| 
-|`DEFAULT_LOG_LEVEL`|Initial severity filter for log messages.| 
-|`LOG_TASK_STACK`|Stack size for the log processing task.| 
-|`LOG_TASK_PRIO`|Priority of the log processing task.| 
+|`LOG_QUEUE_DEPTH`|Depth of the internal log queue.|
+|`TELEMETRY_QUEUE_DEPTH`|Depth of the telemetry queue.|
+|`MAX_LOG_PAYLOAD`|Maximum characters stored for each log entry.|
+|`MAX_TELEMETRY_PAYLOAD`|Maximum payload bytes in a telemetry packet.|
+|`DEFAULT_LOG_LEVEL`|Initial severity filter for log messages.|
+|`LOG_TASK_STACK`|Stack size for the log processing task.|
+|`LOG_TASK_PRIO`|Priority of the log processing task.|
 
 These defaults are visible in [`uart_driver_config.h`](include/uart_driver_config.h).
 
