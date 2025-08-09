@@ -194,6 +194,28 @@ uart_status_t uart_get_status(uart_drv_t *drv) {
     return drv->status;
 }
 
+#if USE_STM32_LL_DRIVERS
+uart_status_t uart_system_init_ll(uart_drv_t *drv,
+                                  USART_TypeDef *uart_instance,
+                                  DMA_TypeDef   *dma_tx_instance,
+                                  DMA_TypeDef   *dma_rx_instance,
+                                  uint32_t      dma_tx_stream,
+                                  uint32_t      dma_rx_stream)
+{
+    uart_status_t ret = uart_init_ll(drv, uart_instance, dma_tx_instance,
+                                     dma_rx_instance, dma_tx_stream, dma_rx_stream);
+    if (ret != UART_OK)
+        return ret;
+
+#if USE_CMD_INTERPRETER
+    cmd_init(drv);
+#endif
+#if LOGGING_ENABLED
+    log_init(drv);
+#endif
+    return UART_OK;
+}
+#else
 uart_status_t uart_system_init(uart_drv_t *drv,
                                UART_HandleTypeDef *huart,
                                DMA_HandleTypeDef  *hdma_tx,
@@ -211,6 +233,7 @@ uart_status_t uart_system_init(uart_drv_t *drv,
 #endif
     return UART_OK;
 }
+#endif
 
 // Callback registration
 
