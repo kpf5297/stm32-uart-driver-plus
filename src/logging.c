@@ -1,8 +1,6 @@
-/*
- * logging.c
- *
- *  Created on: Jul 20, 2025
- *      Author: kevinfox
+/**
+ * @file logging.c
+ * @brief Logging and telemetry utilities.
  */
 #include "logging.h"
 #include "fault_module.h"

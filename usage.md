@@ -56,7 +56,19 @@ log_write(LOG_LEVEL_INFO, "Started");
 ```
 Telemetry packets can be queued via `telemetry_send(&pkt);` when `TELEMETRY_ENABLED` is non-zero.
 
+## Enabling Floating-Point printf in CMake
+
+Many embedded toolchains omit floating-point support from `printf` to save
+flash. When using CMake with newlib-nano, enable `%f` formatting by linking
+with `_printf_float`:
+
+```cmake
+target_link_options(your_target PRIVATE -Wl,-u,_printf_float)
+```
+
+Add `_scanf_float` in the same manner if floating-point scanning is required.
+
 ## Examples
 
-Complete integration examples using FreeRTOS are provided under [`examples/freertos_example`](examples/freertos_example). 
+Complete integration examples using FreeRTOS are provided under [`examples/freertos_example`](examples/freertos_example).
 `main_wo_Command.c` demonstrates a minimal setup without the command interpreter, while `main_w_Command.c` showcases a feature-rich setup with the command interpreter enabled.
