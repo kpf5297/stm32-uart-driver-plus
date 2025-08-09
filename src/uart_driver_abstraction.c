@@ -132,7 +132,7 @@ uart_abstraction_status_t uart_abstraction_init(uart_abstraction_handle_t *handl
     handle->tx_count = 0;
     handle->rx_count = 0;
     
-#ifdef USE_FREERTOS
+#if USE_FREERTOS
     /* Create FreeRTOS synchronization objects */
     handle->tx_mutex = xSemaphoreCreateMutex();
     handle->rx_mutex = xSemaphoreCreateMutex();
@@ -143,7 +143,7 @@ uart_abstraction_status_t uart_abstraction_init(uart_abstraction_handle_t *handl
         !handle->tx_complete_sem || !handle->rx_complete_sem) {
         return UART_ABSTRACTION_ERROR;
     }
-#endif
+#endif /* USE_FREERTOS */
     
 #if USE_STM32_LL_DRIVERS
     return uart_ll_init(handle);
@@ -158,7 +158,7 @@ void uart_abstraction_deinit(uart_abstraction_handle_t *handle)
         return;
     }
     
-#ifdef USE_FREERTOS
+#if USE_FREERTOS
     /* Clean up FreeRTOS objects */
     if (handle->tx_mutex) {
         vSemaphoreDelete(handle->tx_mutex);
@@ -172,7 +172,7 @@ void uart_abstraction_deinit(uart_abstraction_handle_t *handle)
     if (handle->rx_complete_sem) {
         vSemaphoreDelete(handle->rx_complete_sem);
     }
-#endif
+#endif /* USE_FREERTOS */
     
     /* Reset state */
     memset(handle, 0, sizeof(uart_abstraction_handle_t));
@@ -187,7 +187,7 @@ uart_abstraction_status_t uart_abstraction_transmit(uart_abstraction_handle_t *h
         return UART_ABSTRACTION_ERROR;
     }
     
-#ifdef USE_FREERTOS
+#if USE_FREERTOS
     /* Take mutex with timeout */
     if (xSemaphoreTake(handle->tx_mutex, pdMS_TO_TICKS(timeout_ms)) != pdTRUE) {
         return UART_ABSTRACTION_TIMEOUT;
@@ -231,9 +231,9 @@ uart_abstraction_status_t uart_abstraction_transmit(uart_abstraction_handle_t *h
 #endif
     
 cleanup:
-#ifdef USE_FREERTOS
+#if USE_FREERTOS
     xSemaphoreGive(handle->tx_mutex);
-#endif
+#endif /* USE_FREERTOS */
     
     return result;
 }
@@ -247,7 +247,7 @@ uart_abstraction_status_t uart_abstraction_receive(uart_abstraction_handle_t *ha
         return UART_ABSTRACTION_ERROR;
     }
     
-#ifdef USE_FREERTOS
+#if USE_FREERTOS
     /* Take mutex with timeout */
     if (xSemaphoreTake(handle->rx_mutex, pdMS_TO_TICKS(timeout_ms)) != pdTRUE) {
         return UART_ABSTRACTION_TIMEOUT;
@@ -282,9 +282,9 @@ uart_abstraction_status_t uart_abstraction_receive(uart_abstraction_handle_t *ha
 #endif
     
 cleanup:
-#ifdef USE_FREERTOS
+#if USE_FREERTOS
     xSemaphoreGive(handle->rx_mutex);
-#endif
+#endif /* USE_FREERTOS */
     
     return result;
 }
@@ -438,7 +438,7 @@ uint32_t uart_abstraction_is_rx_complete(uart_abstraction_handle_t *handle)
 /*******************************************************************************
  * CMSIS-RTOS2 Integration
  ******************************************************************************/
-#if defined(USE_FREERTOS) && defined(USE_CMSIS_RTOS)
+#if USE_FREERTOS && USE_CMSIS_RTOS
 
 uart_abstraction_status_t uart_abstraction_transmit_rtos(uart_abstraction_handle_t *handle,
                                                          uint8_t *data,
