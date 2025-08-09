@@ -30,11 +30,14 @@ These defaults are visible in [`uart_driver_config.h`](include/uart_driver_confi
 
 1. Configure and initialize the underlying UART peripheral using the STM32 HAL before calling the driver.
 2. Create a `uart_drv_t` instance and call:
+
    ```c
    uart_drv_t uart;
    uart_system_init(&uart, &huart, &hdma_tx, &hdma_rx); // DMA handles may be NULL
    ```
+
 3. Use the blocking or non-blocking APIs to transmit and receive:
+
    ```c
    uart_send_blocking(&uart, data, len, timeout_ms);
    uart_receive_blocking(&uart, buf, len, timeout_ms);
@@ -51,9 +54,11 @@ Commands are defined by filling a `Command` table (see [`commands.c`](src/comman
 When `LOGGING_ENABLED` is non-zero, `uart_system_init()` invokes
 `log_init()` automatically. You can still call `log_init()` yourself
 if the driver was brought up manually. Then log messages from any task:
+
 ```c
 log_write(LOG_LEVEL_INFO, "Started");
 ```
+
 Telemetry packets can be queued via `telemetry_send(&pkt);` when `TELEMETRY_ENABLED` is non-zero.
 
 ## Enabling Floating-Point printf in CMake
@@ -64,6 +69,12 @@ with `_printf_float`:
 
 ```cmake
 target_link_options(your_target PRIVATE -Wl,-u,_printf_float)
+```
+
+**In gcc-arm-none-eabi.cmake**
+
+```cmake
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -u _printf_float")
 ```
 
 Add `_scanf_float` in the same manner if floating-point scanning is required.
