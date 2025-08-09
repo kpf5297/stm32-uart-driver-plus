@@ -18,10 +18,10 @@
 #include "uart_driver_config.h"
 #include "uart_driver_abstraction.h"
 
-#ifdef USE_FREERTOS
+#if USE_FREERTOS
   #include "FreeRTOS.h"
   #include "semphr.h"
-  #ifdef USE_CMSIS_RTOS
+  #if USE_CMSIS_RTOS
     #include "cmsis_os.h"
   #endif
 #endif
@@ -172,10 +172,10 @@ struct uart_drv_handle_s {
 #endif
 
     /* FreeRTOS synchronization (when enabled) */
-#ifdef USE_FREERTOS
+#if USE_FREERTOS
     SemaphoreHandle_t   tx_mutex;
     SemaphoreHandle_t   rx_mutex;
-#endif
+#endif /* USE_FREERTOS */
     
     /* Status and callback management */
     uart_callback_t     cb;

@@ -80,12 +80,12 @@ typedef struct {
     uint16_t tx_count;
     uint16_t rx_count;
     
-#ifdef USE_FREERTOS
+#if USE_FREERTOS
     SemaphoreHandle_t tx_mutex;
     SemaphoreHandle_t rx_mutex;
     SemaphoreHandle_t tx_complete_sem;
     SemaphoreHandle_t rx_complete_sem;
-#endif
+#endif /* USE_FREERTOS */
 } uart_abstraction_handle_t;
 
 /*******************************************************************************
@@ -174,7 +174,7 @@ uint32_t uart_abstraction_is_rx_complete(uart_abstraction_handle_t *handle);
 /*******************************************************************************
  * CMSIS-RTOS2 Integration Functions
  ******************************************************************************/
-#if defined(USE_FREERTOS) && defined(USE_CMSIS_RTOS)
+#if USE_FREERTOS && USE_CMSIS_RTOS
 
 /**
  * @brief CMSIS-RTOS2 compatible transmit with timeout
