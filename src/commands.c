@@ -1,8 +1,6 @@
-/*
- * commands.c
- *
- *  Created on: Jul 20, 2025
- *      Author: kevinfox
+/**
+ * @file commands.c
+ * @brief Example command handlers for UART driver.
  */
 #include "commands.h"
 #include <stdio.h>

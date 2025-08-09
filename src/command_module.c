@@ -1,8 +1,6 @@
-/*
- * command_module.c
- *
- *  Created on: Jul 20, 2025
- *      Author: kevinfox
+/**
+ * @file command_module.c
+ * @brief Simple command interpreter over UART.
  */
 #include "command_module.h"
 #include "commands.h"

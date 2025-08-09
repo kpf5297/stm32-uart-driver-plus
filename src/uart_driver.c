@@ -1,10 +1,7 @@
-/*
- * uart_driver.c
- *
- *  Created on: Jul 19, 2025
- *      Author: kevinfox
+/**
+ * @file uart_driver.c
+ * @brief Thread-safe UART driver implementation.
  */
-// uart_driver.c
 
 #include "uart_driver.h"
 #include "uart_driver_config.h"
@@ -190,8 +187,7 @@ void uart_flush_rx(uart_drv_t *drv) {
 }
 
 void uart_flush_tx(uart_drv_t *drv) {
-//    __HAL_UART_CLEAR_TCFLAG(drv->huart);
-	__HAL_UART_CLEAR_FLAG(drv->huart, UART_FLAG_TC);
+    __HAL_UART_CLEAR_FLAG(drv->huart, UART_FLAG_TC);
 }
 
 uart_status_t uart_get_status(uart_drv_t *drv) {
