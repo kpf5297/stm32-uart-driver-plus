@@ -5,8 +5,10 @@
  * @brief CLI command handlers for demo application.
  */
 
-#include "command_module.h"
+#include "uart_driver_config.h"
 
+#if USE_CMD_INTERPRETER
+#include "command_module.h"
 
 /** Print list of supported commands. */
 void cmd_help(Args *args);
@@ -29,5 +31,6 @@ void cmd_protocol(Args *args);
 extern const Command cmd_list[];
 /** Number of commands in ::cmd_list. */
 extern const size_t  cmd_count;
+#endif
 
 #endif // COMMANDS_H

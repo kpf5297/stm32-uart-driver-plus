@@ -4,6 +4,8 @@
  *  Created on: Jul 20, 2025
  *      Author: kevinfox
  */
+#include "uart_driver_config.h"
+#if USE_CMD_INTERPRETER
 #include "commands.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -398,3 +400,4 @@ const Command cmd_list[] = {
 };
 const size_t cmd_count = sizeof(cmd_list) / sizeof(cmd_list[0]);
 
+#endif // USE_CMD_INTERPRETER

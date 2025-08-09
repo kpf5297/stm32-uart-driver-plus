@@ -2,6 +2,10 @@
  * @file commands.c
  * @brief Example command handlers for UART driver.
  */
+
+#include "uart_driver_config.h"
+#if USE_CMD_INTERPRETER
+
 #include "commands.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -94,4 +98,6 @@ const Command cmd_list[] = {
     { "fault_clear", cmd_fault_clear },
 };
 const size_t cmd_count = sizeof(cmd_list) / sizeof(cmd_list[0]);
+
+#endif // USE_CMD_INTERPRETER
 
