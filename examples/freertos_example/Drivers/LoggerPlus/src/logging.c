@@ -95,6 +95,13 @@ void telemetry_send(const TelemetryPacket *pkt)
 #endif
 }
 
+void log_set_level(LogLevel level)
+{
+#if LOGGING_ENABLED
+    current_level = level;
+#endif
+}
+
 
 // Logging task: drain queue and transmit
 static void log_task(void *arg)

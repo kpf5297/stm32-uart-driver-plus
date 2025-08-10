@@ -20,6 +20,8 @@ void cmd_add(Args *args);
 void cmd_faults(Args *args);
 /** Clear specific or all faults. */
 void cmd_fault_clear(Args *args);
+/** Set minimum logging level. */
+void cmd_log_level(Args *args);
 
 /** Table of available commands. */
 extern const Command cmd_list[];

@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "fault_module.h"
+#include "logging.h"
 
 // Helper to send strings using command module UART
 static void send_str(const char *s) {
@@ -89,6 +90,27 @@ void cmd_fault_clear(Args *args) {
     }
 }
 
+// 'log_level' command: adjust logging verbosity
+void cmd_log_level(Args *args) {
+    if (args->argc != 2) {
+        send_str("Usage: log_level <debug|info|warn|error|fatal>\r\n");
+        return;
+    }
+    LogLevel level;
+    const char *arg = args->argv[1];
+    if (strcmp(arg, "debug") == 0) level = LOG_LEVEL_DEBUG;
+    else if (strcmp(arg, "info") == 0) level = LOG_LEVEL_INFO;
+    else if (strcmp(arg, "warn") == 0) level = LOG_LEVEL_WARN;
+    else if (strcmp(arg, "error") == 0) level = LOG_LEVEL_ERROR;
+    else if (strcmp(arg, "fatal") == 0) level = LOG_LEVEL_FATAL;
+    else {
+        send_str("Invalid level\r\n");
+        return;
+    }
+    log_set_level(level);
+    send_str("Log level updated\r\n");
+}
+
 // Define command table and expose to interpreter
 const Command cmd_list[] = {
     { "help", cmd_help },
@@ -96,6 +118,7 @@ const Command cmd_list[] = {
     { "add",  cmd_add   },
     { "faults", cmd_faults },
     { "fault_clear", cmd_fault_clear },
+    { "log_level", cmd_log_level },
 };
 const size_t cmd_count = sizeof(cmd_list) / sizeof(cmd_list[0]);
 

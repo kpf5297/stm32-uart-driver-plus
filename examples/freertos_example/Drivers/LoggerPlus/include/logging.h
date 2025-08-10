@@ -65,6 +65,9 @@ void log_write(LogLevel level, const char *fmt, ...);
 /** Send a telemetry packet. */
 void telemetry_send(const TelemetryPacket *pkt);
 
+/** Set the minimum severity level for log output. */
+void log_set_level(LogLevel level);
+
 #ifdef __cplusplus
 }
 #endif
