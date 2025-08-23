@@ -1,6 +1,10 @@
 /**
  * @file command_module.c
- * @brief Simple command interpreter over UART.
+ * @brief Simple command interpreter over UART implementation.
+ * 
+ * Provides a lightweight command-line interface that processes commands
+ * received via UART and dispatches them to registered handlers. Uses
+ * FreeRTOS queues for thread-safe operation.
  */
 #include "command_module.h"
 #include "commands.h"
@@ -11,29 +15,39 @@
 
 #if USE_CMD_INTERPRETER
 
+#define CMD_UART_TIMEOUT_MS 100
+#define CMD_TASK_DELAY_MS 1
+#define CMD_PROMPT_SIZE 2
+
 static QueueHandle_t rx_queue;
 static uart_drv_t   *uart;
 static uint8_t       rx_byte;
 
+/**
+ * @brief Transmit raw bytes using the configured UART mode.
+ * @param buf Pointer to data buffer
+ * @param len Number of bytes to send
+ */
 static void cmd_tx_bytes(const uint8_t *buf, size_t len)
 {
 #if UART_TX_MODE == UART_MODE_DMA
     if (uart && uart->hdma_tx) {
-        uart_send_dma_blocking(uart, (uint8_t *)buf, len, 100);
+        uart_send_dma_blocking(uart, buf, len, CMD_UART_TIMEOUT_MS);
         return;
     }
 #elif UART_TX_MODE == UART_MODE_INTERRUPT
     if (uart) {
-        if (uart_send_nb(uart, (uint8_t *)buf, len) == UART_OK) {
+        if (uart_send_nb(uart, buf, len) == UART_OK) {
             while (uart_get_status(uart) == UART_BUSY) {
-                vTaskDelay(1);
+                vTaskDelay(pdMS_TO_TICKS(CMD_TASK_DELAY_MS));
             }
         }
         return;
     }
 #endif
-    if (uart)
-        uart_send_blocking(uart, (uint8_t *)buf, len, 100);
+    if (uart) {
+        uart_send_blocking(uart, buf, len, CMD_UART_TIMEOUT_MS);
+    }
 }
 
 // Simple helpers for command handlers
@@ -44,36 +58,38 @@ void cmd_write(const char *s) {
 }
 
 void cmd_printf(const char *fmt, ...) {
-    char buf[32]; // Use a smaller buffer for streaming
+    static char formatted_buffer[CMD_MAX_LINE_LEN]; // Static buffer to avoid malloc
+    char stream_buf[32]; // Use a smaller buffer for streaming
     va_list args;
+    
     va_start(args, fmt);
-    int len = vsnprintf(NULL, 0, fmt, args); // Get the total length of the formatted string
+    int len = vsnprintf(formatted_buffer, sizeof(formatted_buffer), fmt, args);
     va_end(args);
 
     if (len > 0) {
-        char *formatted = (char *)malloc(len + 1); // Allocate memory for the full string
-        if (formatted) {
-            va_start(args, fmt);
-            vsnprintf(formatted, len + 1, fmt, args);
-            va_end(args);
-
-            for (int i = 0; i < len; i += sizeof(buf) - 1) {
-                strncpy(buf, &formatted[i], sizeof(buf) - 1);
-                buf[sizeof(buf) - 1] = '\0'; // Ensure null termination
-                cmd_write(buf);
-            }
-            free(formatted); // Free the allocated memory
+        // Stream the formatted string in chunks
+        int remaining = (len < (int)sizeof(formatted_buffer)) ? len : (int)sizeof(formatted_buffer) - 1;
+        for (int i = 0; i < remaining; i += sizeof(stream_buf) - 1) {
+            int chunk_size = (remaining - i < (int)sizeof(stream_buf) - 1) ? 
+                           remaining - i : (int)sizeof(stream_buf) - 1;
+            strncpy(stream_buf, &formatted_buffer[i], chunk_size);
+            stream_buf[chunk_size] = '\0';
+            cmd_write(stream_buf);
         }
     }
 }
 
-// ISR-callback: enqueue received byte and re-arm next RX
+/**
+ * @brief UART event callback for handling received bytes.
+ * @param evt Event type received
+ * @param ctx Context pointer (points to rx_byte)
+ */
 static void uart_event_cb(uart_event_t evt, void *ctx) {
     if (evt == UART_EVT_RX_COMPLETE) {
         uint8_t *b = ctx;
         BaseType_t xHigherPriorityTaskWoken = pdFALSE;
         xQueueSendFromISR(rx_queue, b, &xHigherPriorityTaskWoken);
-        // re-arm next RX based on driver config
+        // Re-arm next RX based on driver config
         if (uart->hdma_rx) {
             uart_start_dma_rx(uart, &rx_byte, 1);
         } else {
@@ -84,7 +100,10 @@ static void uart_event_cb(uart_event_t evt, void *ctx) {
 }
 
 
-// Task: build lines, parse, dispatch commands
+/**
+ * @brief Command processing task - builds lines, parses, and dispatches commands.
+ * @param pvParameters Unused task parameter
+ */
 static void cmd_task(void *pvParameters) {
     char    line[CMD_MAX_LINE_LEN];
     size_t  idx = 0;
@@ -130,7 +149,7 @@ static void cmd_task(void *pvParameters) {
                 }
                 idx = 0;
                 // Prompt again
-                cmd_tx_bytes((const uint8_t*)"> ", 2);
+                cmd_tx_bytes((const uint8_t*)"> ", CMD_PROMPT_SIZE);
 
             } else if ((byte == '\b' || byte == 127) && idx > 0) {
                 // Backspace handling
@@ -143,7 +162,10 @@ static void cmd_task(void *pvParameters) {
     }
 }
 
-// Public init: register callback, create queue, start first RX and the cmd task
+/**
+ * @brief Initialize command interpreter subsystem.
+ * @param uart_drv Pointer to UART driver instance to use
+ */
 void cmd_init(uart_drv_t *uart_drv) {
     uart = uart_drv;
     rx_queue = xQueueCreate(CMD_MAX_LINE_LEN, sizeof(uint8_t));

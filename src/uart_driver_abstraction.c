@@ -9,6 +9,11 @@
 #include "uart_driver_abstraction.h"
 #include <string.h>
 
+#define UART_TX_IDLE_STATE 0
+#define UART_TX_ACTIVE_STATE 1
+#define UART_RX_IDLE_STATE 0
+#define UART_RX_ACTIVE_STATE 1
+
 /*******************************************************************************
  * Private Functions
  ******************************************************************************/
@@ -29,8 +34,8 @@ static uart_abstraction_status_t uart_ll_init(uart_abstraction_handle_t *handle)
     LL_USART_EnableIT_RXNE(handle->uart_instance);
     LL_USART_EnableIT_TC(handle->uart_instance);
     
-    handle->tx_state = 0;
-    handle->rx_state = 0;
+    handle->tx_state = UART_TX_IDLE_STATE;
+    handle->rx_state = UART_RX_IDLE_STATE;
     
     return UART_ABSTRACTION_OK;
 }
@@ -42,14 +47,14 @@ static uart_abstraction_status_t uart_ll_transmit(uart_abstraction_handle_t *han
                                                   uint8_t *data,
                                                   uint16_t size)
 {
-    if (handle->tx_state != 0) {
+    if (handle->tx_state != UART_TX_IDLE_STATE) {
         return UART_ABSTRACTION_BUSY;
     }
     
     handle->tx_buffer = data;
     handle->tx_size = size;
     handle->tx_count = 0;
-    handle->tx_state = 1;
+    handle->tx_state = UART_TX_ACTIVE_STATE;
     
     /* Send first byte */
     if (size > 0) {
@@ -67,14 +72,14 @@ static uart_abstraction_status_t uart_ll_receive(uart_abstraction_handle_t *hand
                                                  uint8_t *data,
                                                  uint16_t size)
 {
-    if (handle->rx_state != 0) {
+    if (handle->rx_state != UART_RX_IDLE_STATE) {
         return UART_ABSTRACTION_BUSY;
     }
     
     handle->rx_buffer = data;
     handle->rx_size = size;
     handle->rx_count = 0;
-    handle->rx_state = 1;
+    handle->rx_state = UART_RX_ACTIVE_STATE;
     
     return UART_ABSTRACTION_OK;
 }
@@ -91,8 +96,8 @@ static uart_abstraction_status_t uart_hal_init(uart_abstraction_handle_t *handle
         return UART_ABSTRACTION_ERROR;
     }
     
-    handle->tx_state = 0;
-    handle->rx_state = 0;
+    handle->tx_state = UART_TX_IDLE_STATE;
+    handle->rx_state = UART_RX_IDLE_STATE;
     
     return UART_ABSTRACTION_OK;
 }
@@ -123,8 +128,8 @@ uart_abstraction_status_t uart_abstraction_init(uart_abstraction_handle_t *handl
     }
     
     /* Initialize state */
-    handle->tx_state = 0;
-    handle->rx_state = 0;
+    handle->tx_state = UART_TX_IDLE_STATE;
+    handle->rx_state = UART_RX_IDLE_STATE;
     handle->tx_buffer = NULL;
     handle->rx_buffer = NULL;
     handle->tx_size = 0;
@@ -416,7 +421,7 @@ uint32_t uart_abstraction_is_tx_complete(uart_abstraction_handle_t *handle)
     }
     
 #if USE_STM32_LL_DRIVERS
-    return (handle->tx_state == 0) ? 1 : 0;
+    return (handle->tx_state == UART_TX_IDLE_STATE) ? 1 : 0;
 #else
     return (handle->huart->gState == HAL_UART_STATE_READY) ? 1 : 0;
 #endif
@@ -429,7 +434,7 @@ uint32_t uart_abstraction_is_rx_complete(uart_abstraction_handle_t *handle)
     }
     
 #if USE_STM32_LL_DRIVERS
-    return (handle->rx_state == 0) ? 1 : 0;
+    return (handle->rx_state == UART_RX_IDLE_STATE) ? 1 : 0;
 #else
     return (handle->huart->RxState == HAL_UART_STATE_READY) ? 1 : 0;
 #endif

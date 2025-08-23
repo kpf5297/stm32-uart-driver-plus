@@ -1,11 +1,20 @@
+/**
+ * @file fault_module.c
+ * @brief Fault management and tracking system.
+ */
 #include "fault_module.h"
+#include "uart_driver_config.h"
 #include <string.h>
 #include <stdio.h>
-#include "uart_driver_config.h"
 
+/**
+ * @brief Fault state tracking structure - globally accessible.
+ */
 FaultStatus fault_state;
 
-
+/**
+ * @brief String representations of fault codes for logging.
+ */
 static const char *fault_strings[] = {
     "NONE",
     "OVERCURRENT",
@@ -18,6 +27,10 @@ static const char *fault_strings[] = {
     "CONTROL_LOOP_ERROR"
 };
 
+/**
+ * @brief Get current timestamp using local tick counter.
+ * @return Timestamp structure with current time
+ */
 static Timestamp get_current_timestamp_local(void)
 {
     uint32_t ticks = GET_TICKS();
@@ -34,7 +47,9 @@ void fault_init(void)
 
 void fault_raise(FaultCode code)
 {
-    if (code <= FAULT_NONE || code >= FAULT_COUNT) return;
+    if (code <= FAULT_NONE || code >= FAULT_COUNT) {
+        return;
+    }
 
     FAULT_ENTER_CRITICAL();
     fault_state.active_mask   |= (1u << code);
@@ -46,7 +61,9 @@ void fault_raise(FaultCode code)
 
 void fault_clear(FaultCode code)
 {
-    if (code <= FAULT_NONE || code >= FAULT_COUNT) return;
+    if (code <= FAULT_NONE || code >= FAULT_COUNT) {
+        return;
+    }
 
     FAULT_ENTER_CRITICAL();
     fault_state.active_mask &= ~(1u << code);
@@ -55,7 +72,9 @@ void fault_clear(FaultCode code)
 
 bool fault_is_active(FaultCode code)
 {
-    if (code <= FAULT_NONE || code >= FAULT_COUNT) return false;
+    if (code <= FAULT_NONE || code >= FAULT_COUNT) {
+        return false;
+    }
     return (fault_state.active_mask & (1u << code)) != 0;
 }
 
@@ -68,6 +87,8 @@ void fault_clear_all(void)
 
 const char* fault_to_string(FaultCode code)
 {
-    if (code >= FAULT_COUNT) return "UNKNOWN";
+    if (code >= FAULT_COUNT) {
+        return "UNKNOWN";
+    }
     return fault_strings[code];
 }

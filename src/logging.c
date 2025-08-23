@@ -1,6 +1,9 @@
 /**
  * @file logging.c
- * @brief Logging and telemetry utilities.
+ * @brief Logging and telemetry utilities implementation.
+ * 
+ * Provides structured logging with configurable levels and telemetry
+ * packet transmission over UART. Includes fault monitoring integration.
  */
 #include "logging.h"
 #include "fault_module.h"
@@ -8,31 +11,44 @@
 #include <stdio.h>
 #include <stdarg.h>
 
+#define DEFAULT_UART_TIMEOUT_MS 100
+#define LOG_TASK_DELAY_MS 10
+#define FAULT_CHECK_INTERVAL_MS 500
+#define TASK_DELAY_MS 1
+#define TIMESTAMP_SCALE_FACTOR 1000
+
 // Module state
 static uart_drv_t *log_uart = NULL;
 static QueueHandle_t log_queue = NULL;
 static QueueHandle_t telemetry_queue = NULL;
 static LogLevel current_level = LOG_LEVEL_INFO;
 
+/**
+ * @brief Transmit data using the configured UART mode.
+ * @param data Pointer to data to transmit
+ * @param len Length of data
+ * @param telemetry Whether this is telemetry data (unused currently)
+ */
 static void log_tx(const uint8_t *data, size_t len, bool telemetry)
 {
 #if UART_TX_MODE == UART_MODE_DMA
     if (log_uart && log_uart->hdma_tx) {
-        uart_send_dma_blocking(log_uart, (uint8_t *)data, len, 100);
+        uart_send_dma_blocking(log_uart, data, len, DEFAULT_UART_TIMEOUT_MS);
         return;
     }
 #elif UART_TX_MODE == UART_MODE_INTERRUPT
     if (log_uart) {
-        if (uart_send_nb(log_uart, (uint8_t *)data, len) == UART_OK) {
+        if (uart_send_nb(log_uart, data, len) == UART_OK) {
             while (uart_get_status(log_uart) == UART_BUSY) {
-                vTaskDelay(1);
+                vTaskDelay(pdMS_TO_TICKS(TASK_DELAY_MS));
             }
         }
         return;
     }
 #endif
-    if (log_uart)
-        uart_send_blocking(log_uart, (uint8_t *)data, len, 100);
+    if (log_uart) {
+        uart_send_blocking(log_uart, data, len, DEFAULT_UART_TIMEOUT_MS);
+    }
 }
 
 // Internal task prototypes
@@ -42,17 +58,23 @@ static void process_telemetry_queue(char *out_buf, size_t len);
 static void perform_fault_check(char *out_buf, size_t len);
 
 
-// Fully contained timestamp stub
+/**
+ * @brief Get current timestamp in standard format.
+ * @return Timestamp structure with seconds and subseconds
+ */
 static Timestamp get_current_timestamp(void)
 {
     TickType_t ticks = xTaskGetTickCount();
     Timestamp ts;
-    ts.seconds = ticks / 1000;
-    ts.subseconds = ticks % 1000;
+    ts.seconds = ticks / TIMESTAMP_SCALE_FACTOR;
+    ts.subseconds = ticks % TIMESTAMP_SCALE_FACTOR;
     return ts;
 }
 
-// Public initialization
+/**
+ * @brief Initialize logging system with UART driver.
+ * @param drv Pointer to UART driver instance to use for output
+ */
 void log_init(uart_drv_t *drv)
 {
 #if LOGGING_ENABLED
@@ -71,8 +93,12 @@ void log_init(uart_drv_t *drv)
 void log_write(LogLevel level, const char *fmt, ...)
 {
 #if LOGGING_ENABLED
-    if (level < current_level) return;
-    if (!log_queue) return;
+    if (level < current_level) {
+        return;
+    }
+    if (!log_queue) {
+        return;
+    }
 
     LogEntry entry = {0};
     entry.ts = get_current_timestamp();
@@ -104,7 +130,10 @@ void log_set_level(LogLevel level)
 }
 
 
-// Logging task: drain queue and transmit
+/**
+ * @brief Background logging task - processes queues and monitors faults.
+ * @param arg Unused task parameter
+ */
 static void log_task(void *arg)
 {
     char out_buf[256];
@@ -119,7 +148,7 @@ static void log_task(void *arg)
 static void process_log_queue(char *out_buf, size_t len)
 {
     LogEntry entry;
-    if (xQueueReceive(log_queue, &entry, pdMS_TO_TICKS(10)) == pdPASS) {
+    if (xQueueReceive(log_queue, &entry, pdMS_TO_TICKS(LOG_TASK_DELAY_MS)) == pdPASS) {
         int out_len = snprintf(out_buf, len,
                                "[%lu.%03lu] [%d] %s\r\n",
                                entry.ts.seconds,
@@ -147,7 +176,7 @@ static void perform_fault_check(char *out_buf, size_t len)
 {
     static TickType_t last_fault_check = 0;
     TickType_t now = xTaskGetTickCount();
-    if (now - last_fault_check >= pdMS_TO_TICKS(500)) {
+    if (now - last_fault_check >= pdMS_TO_TICKS(FAULT_CHECK_INTERVAL_MS)) {
         last_fault_check = now;
         if (fault_state.active_mask) {
             Timestamp ts = get_current_timestamp();
