@@ -1,11 +1,20 @@
+/**
+ * @file fault_module.c
+ * @brief Fault management and tracking system.
+ */
 #include "fault_module.h"
+#include "uart_driver_config.h"
 #include <string.h>
 #include <stdio.h>
-#include "uart_driver_config.h"
 
+/**
+ * @brief Fault state tracking structure - globally accessible.
+ */
 FaultStatus fault_state;
 
-
+/**
+ * @brief String representations of fault codes for logging.
+ */
 static const char *fault_strings[] = {
     "NONE",
     "OVERCURRENT",
@@ -18,6 +27,10 @@ static const char *fault_strings[] = {
     "CONTROL_LOOP_ERROR"
 };
 
+/**
+ * @brief Get current timestamp using local tick counter.
+ * @return Timestamp structure with current time
+ */
 static Timestamp get_current_timestamp_local(void)
 {
     uint32_t ticks = GET_TICKS();

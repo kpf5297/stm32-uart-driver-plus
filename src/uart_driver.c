@@ -1,6 +1,10 @@
 /**
  * @file uart_driver.c
  * @brief Thread-safe UART driver implementation.
+ * 
+ * Provides blocking, non-blocking, and DMA-based UART communication
+ * with FreeRTOS integration. Supports multiple UART instances with
+ * automatic callback routing and error handling.
  */
 
 #include "uart_driver.h"
@@ -16,11 +20,15 @@
 #define DEFAULT_UART_TIMEOUT_MS 100
 #define TASK_DELAY_MS 1
 
-// Registry of all inited instances
+/* Registry of all inited instances */
 static uart_drv_t *uart_instances[UART_DRV_MAX_INSTANCES];
 static size_t      uart_instance_count = 0;
 
-/** Find the drv instance matching a given huart pointer */
+/**
+ * @brief Find the driver instance matching a given UART handle.
+ * @param hu Pointer to HAL UART handle
+ * @return Pointer to matching driver instance, or NULL if not found
+ */
 static uart_drv_t *find_drv(UART_HandleTypeDef *hu) {
     for (size_t i = 0; i < uart_instance_count; ++i) {
         if (uart_instances[i]->huart == hu) {
@@ -30,12 +38,18 @@ static uart_drv_t *find_drv(UART_HandleTypeDef *hu) {
     return NULL;
 }
 
-/** Invoke the user callback and update status */
+/**
+ * @brief Invoke the user callback and update driver status.
+ * @param drv Pointer to driver instance
+ * @param evt Event type to report
+ */
 static void notify_event(uart_drv_t *drv, uart_event_t evt) {
     drv->status = (evt == UART_EVT_TX_COMPLETE || evt == UART_EVT_RX_COMPLETE)
                   ? UART_OK
                   : UART_ERROR;
-    if (drv->cb) drv->cb(evt, drv->ctx);
+    if (drv->cb) {
+        drv->cb(evt, drv->ctx);
+    }
 }
 
 uart_status_t uart_init(uart_drv_t *drv,
@@ -49,29 +63,34 @@ uart_status_t uart_init(uart_drv_t *drv,
     drv->huart = huart;
     drv->hdma_tx = hdma_tx;
     drv->hdma_rx = hdma_rx;
-    // Link DMA handles if provided
+    /* Link DMA handles if provided */
     if (drv->hdma_tx) {
         drv->huart->hdmatx = drv->hdma_tx;
     }
     if (drv->hdma_rx) {
         drv->huart->hdmarx = drv->hdma_rx;
     }
-    // Create mutexes
+    /* Create mutexes */
     drv->tx_mutex = xSemaphoreCreateMutex();
     drv->rx_mutex = xSemaphoreCreateMutex();
     drv->cb       = NULL;
     drv->ctx      = NULL;
     drv->status   = UART_OK;
-    // Register instance
+    /* Register instance */
     uart_instances[uart_instance_count++] = drv;
     return (drv->tx_mutex && drv->rx_mutex) ? UART_OK : UART_ERROR;
 }
 
+/**
+ * @brief Clean up and remove driver from registry.
+ * @param drv Pointer to driver instance to deinitialize
+ */
 void uart_deinit(uart_drv_t *drv)
 {
-    // Remove from registry
+    /* Remove from registry */
     for (size_t i = 0; i < uart_instance_count; ++i) {
         if (uart_instances[i] == drv) {
+            /* Shift remaining instances down */
             for (size_t j = i; j + 1 < uart_instance_count; ++j) {
                 uart_instances[j] = uart_instances[j+1];
             }
@@ -79,8 +98,13 @@ void uart_deinit(uart_drv_t *drv)
             break;
         }
     }
-    if (drv->tx_mutex) vSemaphoreDelete(drv->tx_mutex);
-    if (drv->rx_mutex) vSemaphoreDelete(drv->rx_mutex);
+    /* Clean up FreeRTOS resources */
+    if (drv->tx_mutex) {
+        vSemaphoreDelete(drv->tx_mutex);
+    }
+    if (drv->rx_mutex) {
+        vSemaphoreDelete(drv->rx_mutex);
+    }
 }
 
 uart_status_t uart_reconfigure(uart_drv_t *drv,
@@ -101,7 +125,9 @@ uart_status_t uart_reconfigure(uart_drv_t *drv,
     return UART_OK;
 }
 
-// Blocking APIs
+/*******************************************************************************
+ * Blocking APIs
+ ******************************************************************************/
 
 uart_status_t uart_send_blocking(uart_drv_t *drv, const uint8_t *data, size_t len, uint32_t timeout_ms) {
     if (xSemaphoreTake(drv->tx_mutex, pdMS_TO_TICKS(timeout_ms)) != pdTRUE) {
@@ -121,7 +147,9 @@ uart_status_t uart_receive_blocking(uart_drv_t *drv, uint8_t *buf, size_t len, u
     return (h == HAL_OK) ? UART_OK : UART_ERROR;
 }
 
-// Non-blocking IRQ-driven APIs
+/*******************************************************************************
+ * Non-blocking IRQ-driven APIs
+ ******************************************************************************/
 
 uart_status_t uart_send_nb(uart_drv_t *drv, const uint8_t *data, size_t len) {
     if (drv->status == UART_BUSY) {
@@ -147,7 +175,9 @@ uart_status_t uart_receive_nb(uart_drv_t *drv, uint8_t *buf, size_t len) {
     return UART_OK;
 }
 
-// DMA-driven APIs
+/*******************************************************************************
+ * DMA-driven APIs
+ ******************************************************************************/
 
 uart_status_t uart_start_dma_tx(uart_drv_t *drv, const uint8_t *data, size_t len) {
     if (!drv->hdma_tx) {
@@ -197,7 +227,9 @@ uart_status_t uart_send_dma_blocking(uart_drv_t *drv, const uint8_t *data,
     return drv->status;
 }
 
-// Buffer & status
+/*******************************************************************************
+ * Buffer & status APIs  
+ ******************************************************************************/
 
 size_t uart_bytes_available(uart_drv_t *drv) {
     return drv->hdma_rx ? drv->hdma_rx->Instance->NDTR : 0;
@@ -258,14 +290,18 @@ uart_status_t uart_system_init(uart_drv_t *drv,
 }
 #endif
 
-// Callback registration
+/*******************************************************************************
+ * Callback registration
+ ******************************************************************************/
 
 void uart_register_callback(uart_drv_t *drv, uart_callback_t cb, void *user_ctx) {
     drv->cb  = cb;
     drv->ctx = user_ctx;
 }
 
-// HAL UART IRQ callbacks (called by HAL_UART_IRQHandler)
+/*******************************************************************************
+ * HAL UART IRQ callbacks (called by HAL_UART_IRQHandler)
+ ******************************************************************************/
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *hu) {
     uart_drv_t *drv = find_drv(hu);

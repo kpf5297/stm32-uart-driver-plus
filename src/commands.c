@@ -1,6 +1,9 @@
 /**
  * @file commands.c
- * @brief Example command handlers for UART driver.
+ * @brief Example command handlers for UART driver CLI.
+ * 
+ * Implements various demonstration commands including help, echo,
+ * arithmetic operations, fault management, and logging control.
  */
 
 #include "uart_driver_config.h"
@@ -13,12 +16,18 @@
 #include "fault_module.h"
 #include "logging.h"
 
-// Helper to send strings using command module UART
+/**
+ * @brief Helper function to send strings via command interface.
+ * @param s String to send
+ */
 static void send_str(const char *s) {
     cmd_write(s);
 }
 
-// 'help' command: list all available commands
+/**
+ * @brief 'help' command handler - list all available commands.
+ * @param args Command arguments (unused)
+ */
 void cmd_help(Args *args) {
     send_str("Available commands:\r\n");
     for (size_t i = 0; i < cmd_count; i++) {
@@ -28,16 +37,24 @@ void cmd_help(Args *args) {
     }
 }
 
-// 'echo' command: repeat back provided parameters
+/**
+ * @brief 'echo' command handler - repeat back provided parameters.
+ * @param args Command arguments to echo
+ */
 void cmd_echo(Args *args) {
     for (int i = 1; i < args->argc; i++) {
         send_str(args->argv[i]);
-        if (i < args->argc - 1) send_str(" ");
+        if (i < args->argc - 1) {
+            send_str(" ");
+        }
     }
     send_str("\r\n");
 }
 
-// 'add' command: add two integers and print result
+/**
+ * @brief 'add' command handler - add two integers and print result.
+ * @param args Command arguments containing two numbers
+ */
 void cmd_add(Args *args) {
     if (args->argc != 3) {
         send_str("Usage: add <a> <b>\r\n");
@@ -50,7 +67,10 @@ void cmd_add(Args *args) {
     send_str(buf);
 }
 
-// 'faults' command: list active faults
+/**
+ * @brief 'faults' command handler - list active faults.
+ * @param args Command arguments (unused)
+ */
 void cmd_faults(Args *args) {
     bool any = false;
     for (int i = 1; i < FAULT_COUNT; ++i) {
@@ -69,7 +89,10 @@ void cmd_faults(Args *args) {
     }
 }
 
-// 'fault_clear' command
+/**
+ * @brief 'fault_clear' command handler - clear specific or all faults.
+ * @param args Command arguments containing fault code or "all"
+ */
 void cmd_fault_clear(Args *args) {
     if (args->argc != 2) {
         send_str("Usage: fault_clear <code>|all\r\n");
@@ -90,7 +113,10 @@ void cmd_fault_clear(Args *args) {
     }
 }
 
-// 'log_level' command: adjust logging verbosity
+/**
+ * @brief 'log_level' command handler - adjust logging verbosity.
+ * @param args Command arguments containing log level name
+ */
 void cmd_log_level(Args *args) {
     if (args->argc != 2) {
         send_str("Usage: log_level <debug|info|warn|error|fatal>\r\n");
@@ -111,7 +137,9 @@ void cmd_log_level(Args *args) {
     send_str("Log level updated\r\n");
 }
 
-// Define command table and expose to interpreter
+/*
+ * Command table definition and registration
+ */
 const Command cmd_list[] = {
     { "help", cmd_help },
     { "echo", cmd_echo  },

@@ -1,6 +1,9 @@
 /**
  * @file logging.c
- * @brief Logging and telemetry utilities.
+ * @brief Logging and telemetry utilities implementation.
+ * 
+ * Provides structured logging with configurable levels and telemetry
+ * packet transmission over UART. Includes fault monitoring integration.
  */
 #include "logging.h"
 #include "fault_module.h"
@@ -20,6 +23,12 @@ static QueueHandle_t log_queue = NULL;
 static QueueHandle_t telemetry_queue = NULL;
 static LogLevel current_level = LOG_LEVEL_INFO;
 
+/**
+ * @brief Transmit data using the configured UART mode.
+ * @param data Pointer to data to transmit
+ * @param len Length of data
+ * @param telemetry Whether this is telemetry data (unused currently)
+ */
 static void log_tx(const uint8_t *data, size_t len, bool telemetry)
 {
 #if UART_TX_MODE == UART_MODE_DMA
@@ -49,7 +58,10 @@ static void process_telemetry_queue(char *out_buf, size_t len);
 static void perform_fault_check(char *out_buf, size_t len);
 
 
-// Fully contained timestamp stub
+/**
+ * @brief Get current timestamp in standard format.
+ * @return Timestamp structure with seconds and subseconds
+ */
 static Timestamp get_current_timestamp(void)
 {
     TickType_t ticks = xTaskGetTickCount();
@@ -59,7 +71,10 @@ static Timestamp get_current_timestamp(void)
     return ts;
 }
 
-// Public initialization
+/**
+ * @brief Initialize logging system with UART driver.
+ * @param drv Pointer to UART driver instance to use for output
+ */
 void log_init(uart_drv_t *drv)
 {
 #if LOGGING_ENABLED
@@ -115,7 +130,10 @@ void log_set_level(LogLevel level)
 }
 
 
-// Logging task: drain queue and transmit
+/**
+ * @brief Background logging task - processes queues and monitors faults.
+ * @param arg Unused task parameter
+ */
 static void log_task(void *arg)
 {
     char out_buf[256];
