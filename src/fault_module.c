@@ -34,7 +34,9 @@ void fault_init(void)
 
 void fault_raise(FaultCode code)
 {
-    if (code <= FAULT_NONE || code >= FAULT_COUNT) return;
+    if (code <= FAULT_NONE || code >= FAULT_COUNT) {
+        return;
+    }
 
     FAULT_ENTER_CRITICAL();
     fault_state.active_mask   |= (1u << code);
@@ -46,7 +48,9 @@ void fault_raise(FaultCode code)
 
 void fault_clear(FaultCode code)
 {
-    if (code <= FAULT_NONE || code >= FAULT_COUNT) return;
+    if (code <= FAULT_NONE || code >= FAULT_COUNT) {
+        return;
+    }
 
     FAULT_ENTER_CRITICAL();
     fault_state.active_mask &= ~(1u << code);
@@ -55,7 +59,9 @@ void fault_clear(FaultCode code)
 
 bool fault_is_active(FaultCode code)
 {
-    if (code <= FAULT_NONE || code >= FAULT_COUNT) return false;
+    if (code <= FAULT_NONE || code >= FAULT_COUNT) {
+        return false;
+    }
     return (fault_state.active_mask & (1u << code)) != 0;
 }
 
@@ -68,6 +74,8 @@ void fault_clear_all(void)
 
 const char* fault_to_string(FaultCode code)
 {
-    if (code >= FAULT_COUNT) return "UNKNOWN";
+    if (code >= FAULT_COUNT) {
+        return "UNKNOWN";
+    }
     return fault_strings[code];
 }

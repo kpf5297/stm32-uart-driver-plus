@@ -13,6 +13,8 @@
 #endif
 
 #define UART_DRV_MAX_INSTANCES 4
+#define DEFAULT_UART_TIMEOUT_MS 100
+#define TASK_DELAY_MS 1
 
 // Registry of all inited instances
 static uart_drv_t *uart_instances[UART_DRV_MAX_INSTANCES];
@@ -48,8 +50,12 @@ uart_status_t uart_init(uart_drv_t *drv,
     drv->hdma_tx = hdma_tx;
     drv->hdma_rx = hdma_rx;
     // Link DMA handles if provided
-    if (drv->hdma_tx) drv->huart->hdmatx = drv->hdma_tx;
-    if (drv->hdma_rx) drv->huart->hdmarx = drv->hdma_rx;
+    if (drv->hdma_tx) {
+        drv->huart->hdmatx = drv->hdma_tx;
+    }
+    if (drv->hdma_rx) {
+        drv->huart->hdmarx = drv->hdma_rx;
+    }
     // Create mutexes
     drv->tx_mutex = xSemaphoreCreateMutex();
     drv->rx_mutex = xSemaphoreCreateMutex();
@@ -85,36 +91,44 @@ uart_status_t uart_reconfigure(uart_drv_t *drv,
     drv->huart = huart;
     drv->hdma_tx = hdma_tx;
     drv->hdma_rx = hdma_rx;
-    if (drv->hdma_tx) drv->huart->hdmatx = drv->hdma_tx;
-    if (drv->hdma_rx) drv->huart->hdmarx = drv->hdma_rx;
+    if (drv->hdma_tx) {
+        drv->huart->hdmatx = drv->hdma_tx;
+    }
+    if (drv->hdma_rx) {
+        drv->huart->hdmarx = drv->hdma_rx;
+    }
     drv->status = UART_OK;
     return UART_OK;
 }
 
 // Blocking APIs
 
-uart_status_t uart_send_blocking(uart_drv_t *drv, uint8_t *data, size_t len, uint32_t timeout_ms) {
-    if (xSemaphoreTake(drv->tx_mutex, pdMS_TO_TICKS(timeout_ms)) != pdTRUE)
+uart_status_t uart_send_blocking(uart_drv_t *drv, const uint8_t *data, size_t len, uint32_t timeout_ms) {
+    if (xSemaphoreTake(drv->tx_mutex, pdMS_TO_TICKS(timeout_ms)) != pdTRUE) {
         return UART_BUSY;
-    HAL_StatusTypeDef h = HAL_UART_Transmit(drv->huart, data, len, timeout_ms);
+    }
+    HAL_StatusTypeDef h = HAL_UART_Transmit(drv->huart, (uint8_t *)data, len, timeout_ms);
     xSemaphoreGive(drv->tx_mutex);
-    return (h == HAL_OK ? UART_OK : UART_ERROR);
+    return (h == HAL_OK) ? UART_OK : UART_ERROR;
 }
 
 uart_status_t uart_receive_blocking(uart_drv_t *drv, uint8_t *buf, size_t len, uint32_t timeout_ms) {
-    if (xSemaphoreTake(drv->rx_mutex, pdMS_TO_TICKS(timeout_ms)) != pdTRUE)
+    if (xSemaphoreTake(drv->rx_mutex, pdMS_TO_TICKS(timeout_ms)) != pdTRUE) {
         return UART_BUSY;
+    }
     HAL_StatusTypeDef h = HAL_UART_Receive(drv->huart, buf, len, timeout_ms);
     xSemaphoreGive(drv->rx_mutex);
-    return (h == HAL_OK ? UART_OK : UART_ERROR);
+    return (h == HAL_OK) ? UART_OK : UART_ERROR;
 }
 
 // Non-blocking IRQ-driven APIs
 
-uart_status_t uart_send_nb(uart_drv_t *drv, uint8_t *data, size_t len) {
-    if (drv->status == UART_BUSY) return UART_BUSY;
+uart_status_t uart_send_nb(uart_drv_t *drv, const uint8_t *data, size_t len) {
+    if (drv->status == UART_BUSY) {
+        return UART_BUSY;
+    }
     drv->status = UART_BUSY;
-    if (HAL_UART_Transmit_IT(drv->huart, data, len) != HAL_OK) {
+    if (HAL_UART_Transmit_IT(drv->huart, (uint8_t *)data, len) != HAL_OK) {
         drv->status = UART_ERROR;
         return UART_ERROR;
     }
@@ -122,7 +136,9 @@ uart_status_t uart_send_nb(uart_drv_t *drv, uint8_t *data, size_t len) {
 }
 
 uart_status_t uart_receive_nb(uart_drv_t *drv, uint8_t *buf, size_t len) {
-    if (drv->status == UART_BUSY) return UART_BUSY;
+    if (drv->status == UART_BUSY) {
+        return UART_BUSY;
+    }
     drv->status = UART_BUSY;
     if (HAL_UART_Receive_IT(drv->huart, buf, len) != HAL_OK) {
         drv->status = UART_ERROR;
@@ -133,29 +149,35 @@ uart_status_t uart_receive_nb(uart_drv_t *drv, uint8_t *buf, size_t len) {
 
 // DMA-driven APIs
 
-uart_status_t uart_start_dma_tx(uart_drv_t *drv, uint8_t *data, size_t len) {
-    if (!drv->hdma_tx) return UART_ERROR;
-    return (HAL_UART_Transmit_DMA(drv->huart, data, len) == HAL_OK
-            ? UART_OK : UART_ERROR);
+uart_status_t uart_start_dma_tx(uart_drv_t *drv, const uint8_t *data, size_t len) {
+    if (!drv->hdma_tx) {
+        return UART_ERROR;
+    }
+    return (HAL_UART_Transmit_DMA(drv->huart, (uint8_t *)data, len) == HAL_OK)
+            ? UART_OK : UART_ERROR;
 }
 
 uart_status_t uart_start_dma_rx(uart_drv_t *drv, uint8_t *buf, size_t len) {
-    if (!drv->hdma_rx) return UART_ERROR;
-    return (HAL_UART_Receive_DMA(drv->huart, buf, len) == HAL_OK
-            ? UART_OK : UART_ERROR);
+    if (!drv->hdma_rx) {
+        return UART_ERROR;
+    }
+    return (HAL_UART_Receive_DMA(drv->huart, buf, len) == HAL_OK)
+            ? UART_OK : UART_ERROR;
 }
 
 // Blocking DMA transmit helper
-uart_status_t uart_send_dma_blocking(uart_drv_t *drv, uint8_t *data,
+uart_status_t uart_send_dma_blocking(uart_drv_t *drv, const uint8_t *data,
                                      size_t len, uint32_t timeout_ms)
 {
-    if (!drv->hdma_tx)
+    if (!drv->hdma_tx) {
         return UART_ERROR;
-    if (xSemaphoreTake(drv->tx_mutex, pdMS_TO_TICKS(timeout_ms)) != pdTRUE)
+    }
+    if (xSemaphoreTake(drv->tx_mutex, pdMS_TO_TICKS(timeout_ms)) != pdTRUE) {
         return UART_BUSY;
+    }
 
     drv->status = UART_BUSY;
-    if (HAL_UART_Transmit_DMA(drv->huart, data, len) != HAL_OK) {
+    if (HAL_UART_Transmit_DMA(drv->huart, (uint8_t *)data, len) != HAL_OK) {
         drv->status = UART_ERROR;
         xSemaphoreGive(drv->tx_mutex);
         return UART_ERROR;
@@ -168,7 +190,7 @@ uart_status_t uart_send_dma_blocking(uart_drv_t *drv, uint8_t *data,
             xSemaphoreGive(drv->tx_mutex);
             return UART_ERROR;
         }
-        vTaskDelay(1);
+        vTaskDelay(pdMS_TO_TICKS(TASK_DELAY_MS));
     }
 
     xSemaphoreGive(drv->tx_mutex);
@@ -180,7 +202,6 @@ uart_status_t uart_send_dma_blocking(uart_drv_t *drv, uint8_t *data,
 size_t uart_bytes_available(uart_drv_t *drv) {
     return drv->hdma_rx ? drv->hdma_rx->Instance->NDTR : 0;
 }
-
 
 void uart_flush_rx(uart_drv_t *drv) {
     __HAL_UART_CLEAR_OREFLAG(drv->huart);
@@ -204,8 +225,9 @@ uart_status_t uart_system_init_ll(uart_drv_t *drv,
 {
     uart_status_t ret = uart_init_ll(drv, uart_instance, dma_tx_instance,
                                      dma_rx_instance, dma_tx_stream, dma_rx_stream);
-    if (ret != UART_OK)
+    if (ret != UART_OK) {
         return ret;
+    }
 
 #if USE_CMD_INTERPRETER
     cmd_init(drv);
@@ -222,8 +244,9 @@ uart_status_t uart_system_init(uart_drv_t *drv,
                                DMA_HandleTypeDef  *hdma_rx)
 {
     uart_status_t ret = uart_init(drv, huart, hdma_tx, hdma_rx);
-    if (ret != UART_OK)
+    if (ret != UART_OK) {
         return ret;
+    }
 
 #if USE_CMD_INTERPRETER
     cmd_init(drv);
@@ -246,17 +269,23 @@ void uart_register_callback(uart_drv_t *drv, uart_callback_t cb, void *user_ctx)
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *hu) {
     uart_drv_t *drv = find_drv(hu);
-    if (drv) notify_event(drv, UART_EVT_TX_COMPLETE);
+    if (drv) {
+        notify_event(drv, UART_EVT_TX_COMPLETE);
+    }
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *hu) {
     uart_drv_t *drv = find_drv(hu);
-    if (drv) notify_event(drv, UART_EVT_RX_COMPLETE);
+    if (drv) {
+        notify_event(drv, UART_EVT_RX_COMPLETE);
+    }
 }
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *hu) {
     uart_drv_t *drv = find_drv(hu);
-    if (drv) notify_event(drv, UART_EVT_ERROR);
+    if (drv) {
+        notify_event(drv, UART_EVT_ERROR);
+    }
 }
 
 

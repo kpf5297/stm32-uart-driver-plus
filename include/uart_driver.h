@@ -126,7 +126,7 @@ uart_status_t uart_reconfigure(uart_drv_t *drv,
  * This function grabs the TX mutex and calls HAL_UART_Transmit().
  * It will block the calling task for up to @p timeout_ms.
  */
-uart_status_t uart_send_blocking   (uart_drv_t *drv, uint8_t *data, size_t len, uint32_t timeout_ms);
+uart_status_t uart_send_blocking   (uart_drv_t *drv, const uint8_t *data, size_t len, uint32_t timeout_ms);
 
 /**
  * @brief Receive data in a blocking manner.
@@ -136,16 +136,16 @@ uart_status_t uart_send_blocking   (uart_drv_t *drv, uint8_t *data, size_t len, 
 uart_status_t uart_receive_blocking(uart_drv_t *drv, uint8_t *buf,  size_t len, uint32_t timeout_ms);
 
 /** @brief Begin an interrupt-driven transmit. */
-uart_status_t uart_send_nb   (uart_drv_t *drv, uint8_t *data, size_t len);
+uart_status_t uart_send_nb   (uart_drv_t *drv, const uint8_t *data, size_t len);
 /** @brief Begin an interrupt-driven receive. */
 uart_status_t uart_receive_nb(uart_drv_t *drv, uint8_t *buf,  size_t len);
 
 /** @brief Begin a DMA based transmit. */
-uart_status_t uart_start_dma_tx(uart_drv_t *drv, uint8_t *data, size_t len);
+uart_status_t uart_start_dma_tx(uart_drv_t *drv, const uint8_t *data, size_t len);
 /** @brief Begin a DMA based receive. */
 uart_status_t uart_start_dma_rx(uart_drv_t *drv, uint8_t *buf,  size_t len);
 /** @brief Blocking transmit using DMA when available. */
-uart_status_t uart_send_dma_blocking(uart_drv_t *drv, uint8_t *data,
+uart_status_t uart_send_dma_blocking(uart_drv_t *drv, const uint8_t *data,
                                      size_t len, uint32_t timeout_ms);
 
 /** Return number of bytes remaining in DMA RX buffer (0 if not using DMA). */
