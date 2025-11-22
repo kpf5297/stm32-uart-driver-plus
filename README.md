@@ -2,37 +2,20 @@
 
 **Version 1.2**
 
-A professional, modular UART driver package for STM32 microcontrollers designed for robust integration in FreeRTOS-based systems. Supports both STM32 HAL and LL (Low Layer) drivers with CMSIS-RTOS compatibility.
+A professional, modular UART driver package for STM32 microcontrollers designed for robust integration in FreeRTOS-based systems. Uses STM32 HAL drivers exclusively (LL removed).
 
 ## Key Features
 
-- **Dual Driver Support**: Choose between STM32 HAL (ease of use) or LL (performance optimization)
-- **RTOS Integration**: Full compatibility with FreeRTOS and CMSIS-RTOS v1/v2
-- **Modular Architecture**: Optional command interpreter, logging, and telemetry modules
-- **Thread-Safe Operations**: Mutex-protected APIs for multi-task environments
-- **Configurable Operation Modes**: Blocking, interrupt, or DMA transmission modes
-- **Error Handling**: Comprehensive error detection and recovery mechanisms
 
 ## Architecture Overview
 
-The driver supports multiple configurations optimized for different performance and complexity requirements:
-
-| Driver Layer | RTOS Support | Performance | Memory Usage | Integration Complexity |
-|-------------|-------------|-------------|--------------|----------------------|
 | STM32 HAL | None | Good | Medium | Low |
 | STM32 HAL | FreeRTOS/CMSIS | Good | High | Low |
-| STM32 LL | None | Excellent | Low | High |
-| STM32 LL | FreeRTOS/CMSIS | Excellent | Medium | Medium |
-
-## Getting Started
-
-### Configuration
 
 Edit `include/uart_driver_config.h` to select your target configuration:
 
 ```c
-/* Driver Layer Selection */
-#define USE_STM32_LL_DRIVERS  0    // 0=HAL, 1=LL
+#define USE_STM32_HAL_DRIVERS  1    // HAL is the supported driver layer
 #define USE_FREERTOS          1    // Enable FreeRTOS support
 #define USE_CMSIS_RTOS        1    // Enable CMSIS-RTOS wrapper
 ```
@@ -52,20 +35,12 @@ uint8_t data[] = "Hello World!\n";
 uart_send_blocking(&uart_driver, data, strlen((char*)data), 1000);
 ```
 
-**LL + FreeRTOS Implementation:**
-```c
-#include "uart_driver.h"
-
-// Initialize with LL parameters
-uart_drv_t uart_driver;
-uart_system_init_ll(&uart_driver, USART2, DMA1, DMA1, 
-                    LL_DMA_STREAM_6, LL_DMA_STREAM_5);
-```
+(LL driver examples were removed; see `examples/freertos_example/` for HAL-only usage.)
 
 ### Examples and Documentation
 
 - Complete HAL + FreeRTOS project: `examples/freertos_example/`
-- LL + FreeRTOS implementation: `examples/freertos_ll_example.c`
+-- HAL + FreeRTOS implementation: `examples/freertos_example/`
 - Detailed configuration guide: `CMSIS_FREERTOS_LL_GUIDE.md`
 - API usage examples: `usage.md`
 
@@ -76,7 +51,7 @@ uart_system_init_ll(&uart_driver, USART2, DMA1, DMA1,
 - Multiple transmission modes: blocking, interrupt, and DMA
 - Comprehensive error handling (overrun, framing, noise detection)
 - Thread-safe operation with mutex protection
-- Support for both STM32 HAL and LL drivers
+- Support for STM32 HAL drivers
 
 ### Command Interpreter (Optional)
 - Compile-time command registration via structured tables
@@ -102,7 +77,7 @@ uart_system_init_ll(&uart_driver, USART2, DMA1, DMA1,
 - Optional DMA controller for high-performance applications
 
 **Software:**
-- STM32 HAL or LL drivers
+- STM32 HAL drivers
 - Optional: FreeRTOS or CMSIS-RTOS
 - Standard C library (newlib/newlib-nano supported)
 

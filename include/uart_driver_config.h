@@ -6,11 +6,7 @@
 /*******************************************************************************
  * STM32 Driver Layer Selection
  ******************************************************************************/
-/* Choose which STM32 driver layer to use:
- * 0 = HAL (Hardware Abstraction Layer)
- * 1 = LL (Low Layer) 
- */
-#define USE_STM32_LL_DRIVERS  0
+/* STM32 driver layer selection: this repository now uses HAL only */
 
 /* FreeRTOS/CMSIS-RTOS Support */
 #define USE_FREERTOS          1
@@ -61,14 +57,8 @@
   #define FAULT_EXIT_CRITICAL()  taskEXIT_CRITICAL()
 #else
   /* Bare metal or other RTOS */
-  #if USE_STM32_LL_DRIVERS
-    #include "stm32f4xx_ll_usart.h"
-    #include "stm32f4xx_ll_dma.h"
-    #include "stm32f4xx_ll_gpio.h"
-    #include "stm32f4xx_ll_rcc.h"
-  #else
-    #include "stm32f4xx_hal.h"
-  #endif
+  /* HAL is used exclusively */
+  #include "stm32f4xx_hal.h"
   #define TICKS_PER_SECOND       1000U
   #define GET_TICKS()            HAL_GetTick()
   #define FAULT_ENTER_CRITICAL() __disable_irq()

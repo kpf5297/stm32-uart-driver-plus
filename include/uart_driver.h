@@ -6,7 +6,7 @@
  * transmission and reception using either interrupts or DMA.
  * All functions are safe to call from multiple FreeRTOS tasks.
  * 
- * Supports both STM32 HAL and LL (Low Layer) drivers with CMSIS-RTOS integration.
+ * Uses STM32 HAL drivers (LL support has been removed) with CMSIS-RTOS integration.
  */
 
 #ifndef UART_DRIVER_H
@@ -26,12 +26,7 @@
   #endif
 #endif
 
-#if USE_STM32_LL_DRIVERS
-  #include "stm32f4xx_ll_usart.h"
-  #include "stm32f4xx_ll_dma.h"
-#else
   #include "stm32f4xx_hal.h"   // adjust to your STM32 series HAL header
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -60,22 +55,12 @@ typedef void (*uart_callback_t)(uart_event_t evt, void *user_ctx);
 /**
  * @brief Initialize a UART driver instance.
  *
- * For HAL mode: Caller MUST have already initialized the underlying HAL UART peripheral.
- * For LL mode: Caller MUST provide valid LL UART instance and configure it appropriately.
+ * Caller MUST have initialized the underlying HAL UART peripheral and optional DMA handles.
  */
-#if USE_STM32_LL_DRIVERS
-uart_status_t uart_init_ll(uart_drv_t *drv,
-                           USART_TypeDef *uart_instance,
-                           DMA_TypeDef   *dma_tx_instance,
-                           DMA_TypeDef   *dma_rx_instance,
-                           uint32_t      dma_tx_stream,
-                           uint32_t      dma_rx_stream);
-#else
 uart_status_t uart_init(uart_drv_t *drv,
                         UART_HandleTypeDef *huart,
                         DMA_HandleTypeDef  *hdma_tx,
                         DMA_HandleTypeDef  *hdma_rx);
-#endif
 
 /**
  * @brief Convenience initializer that also sets up optional modules.
@@ -84,19 +69,10 @@ uart_status_t uart_init(uart_drv_t *drv,
  * log_init automatically when the corresponding feature macros
  * are enabled in `uart_driver_config.h`.
  */
-#if USE_STM32_LL_DRIVERS
-uart_status_t uart_system_init_ll(uart_drv_t *drv,
-                                  USART_TypeDef *uart_instance,
-                                  DMA_TypeDef   *dma_tx_instance,
-                                  DMA_TypeDef   *dma_rx_instance,
-                                  uint32_t      dma_tx_stream,
-                                  uint32_t      dma_rx_stream);
-#else
 uart_status_t uart_system_init(uart_drv_t *drv,
                                UART_HandleTypeDef *huart,
                                DMA_HandleTypeDef  *hdma_tx,
                                DMA_HandleTypeDef  *hdma_rx);
-#endif
 
 /**
  * @brief Deinitialize a driver instance (frees its mutexes).
@@ -106,19 +82,10 @@ void uart_deinit(uart_drv_t *drv);
 /**
  * @brief Swap in a different UART/DMA handle set at runtime.
  */
-#if USE_STM32_LL_DRIVERS
-uart_status_t uart_reconfigure_ll(uart_drv_t *drv,
-                                  USART_TypeDef *uart_instance,
-                                  DMA_TypeDef   *dma_tx_instance,
-                                  DMA_TypeDef   *dma_rx_instance,
-                                  uint32_t      dma_tx_stream,
-                                  uint32_t      dma_rx_stream);
-#else
 uart_status_t uart_reconfigure(uart_drv_t *drv,
                                UART_HandleTypeDef *huart,
                                DMA_HandleTypeDef  *hdma_tx,
                                DMA_HandleTypeDef  *hdma_rx);
-#endif
 
 /**
  * @brief Transmit data in a blocking manner.
@@ -161,15 +128,13 @@ uart_status_t uart_get_status      (uart_drv_t *drv);
  * @brief Internal state structure for a UART instance.
  */
 struct uart_drv_handle_s {
-    /* Abstraction layer handle - works with both HAL and LL */
+    /* Abstraction layer handle (HAL-only) */
     uart_abstraction_handle_t abstraction;
     
     /* Legacy HAL interface (for backward compatibility) */
-#if !USE_STM32_LL_DRIVERS
     UART_HandleTypeDef *huart;
     DMA_HandleTypeDef  *hdma_tx;
     DMA_HandleTypeDef  *hdma_rx;
-#endif
 
     /* FreeRTOS synchronization (when enabled) */
 #if USE_FREERTOS

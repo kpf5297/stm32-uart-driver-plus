@@ -1,9 +1,9 @@
 /**
  * @file uart_driver_abstraction.c
- * @brief Implementation of UART abstraction layer for HAL/LL compatibility
+ * @brief HAL-only UART abstraction implementation
  *
- * This file implements the unified API that works with both STM32 HAL
- * and LL drivers, providing seamless integration with CMSIS-RTOS.
+ * This file implements the unified API for the STM32 HAL driver,
+ * providing integration with CMSIS-RTOS and FreeRTOS.
  */
 
 #include "uart_driver_abstraction.h"
@@ -18,77 +18,10 @@
  * Private Functions
  ******************************************************************************/
 
-#if USE_STM32_LL_DRIVERS
-
-/**
- * @brief LL-specific initialization
+/*
+ * Private Functions
  */
-static uart_abstraction_status_t uart_ll_init(uart_abstraction_handle_t *handle)
-{
-    /* Initialize LL UART peripheral */
-    if (!LL_USART_IsEnabled(handle->uart_instance)) {
-        LL_USART_Enable(handle->uart_instance);
-    }
-    
-    /* Enable UART interrupts if needed */
-    LL_USART_EnableIT_RXNE(handle->uart_instance);
-    LL_USART_EnableIT_TC(handle->uart_instance);
-    
-    handle->tx_state = UART_TX_IDLE_STATE;
-    handle->rx_state = UART_RX_IDLE_STATE;
-    
-    return UART_ABSTRACTION_OK;
-}
-
-/**
- * @brief LL-specific transmit implementation
- */
-static uart_abstraction_status_t uart_ll_transmit(uart_abstraction_handle_t *handle,
-                                                  uint8_t *data,
-                                                  uint16_t size)
-{
-    if (handle->tx_state != UART_TX_IDLE_STATE) {
-        return UART_ABSTRACTION_BUSY;
-    }
-    
-    handle->tx_buffer = data;
-    handle->tx_size = size;
-    handle->tx_count = 0;
-    handle->tx_state = UART_TX_ACTIVE_STATE;
-    
-    /* Send first byte */
-    if (size > 0) {
-        LL_USART_TransmitData8(handle->uart_instance, data[0]);
-        handle->tx_count = 1;
-    }
-    
-    return UART_ABSTRACTION_OK;
-}
-
-/**
- * @brief LL-specific receive implementation
- */
-static uart_abstraction_status_t uart_ll_receive(uart_abstraction_handle_t *handle,
-                                                 uint8_t *data,
-                                                 uint16_t size)
-{
-    if (handle->rx_state != UART_RX_IDLE_STATE) {
-        return UART_ABSTRACTION_BUSY;
-    }
-    
-    handle->rx_buffer = data;
-    handle->rx_size = size;
-    handle->rx_count = 0;
-    handle->rx_state = UART_RX_ACTIVE_STATE;
-    
-    return UART_ABSTRACTION_OK;
-}
-
-#else /* HAL Implementation */
-
-/**
- * @brief HAL-specific initialization
- */
+/* HAL Implementation */
 static uart_abstraction_status_t uart_hal_init(uart_abstraction_handle_t *handle)
 {
     /* HAL UART should already be initialized by user */
@@ -115,7 +48,7 @@ static uart_abstraction_status_t hal_to_abstraction_status(HAL_StatusTypeDef hal
     }
 }
 
-#endif /* USE_STM32_LL_DRIVERS */
+/* end HAL-only implementation */
 
 /*******************************************************************************
  * Public API Implementation
@@ -150,11 +83,7 @@ uart_abstraction_status_t uart_abstraction_init(uart_abstraction_handle_t *handl
     }
 #endif /* USE_FREERTOS */
     
-#if USE_STM32_LL_DRIVERS
-    return uart_ll_init(handle);
-#else
     return uart_hal_init(handle);
-#endif
 }
 
 void uart_abstraction_deinit(uart_abstraction_handle_t *handle)
@@ -201,39 +130,9 @@ uart_abstraction_status_t uart_abstraction_transmit(uart_abstraction_handle_t *h
     
     uart_abstraction_status_t result;
     
-#if USE_STM32_LL_DRIVERS
-    /* LL blocking transmit implementation */
-    for (uint16_t i = 0; i < size; i++) {
-        uint32_t start_tick = GET_TICKS();
-        
-        /* Wait for TX register to be empty */
-        while (!LL_USART_IsActiveFlag_TXE(handle->uart_instance)) {
-            if ((GET_TICKS() - start_tick) >= timeout_ms) {
-                result = UART_ABSTRACTION_TIMEOUT;
-                goto cleanup;
-            }
-        }
-        
-        /* Send byte */
-        LL_USART_TransmitData8(handle->uart_instance, data[i]);
-    }
-    
-    /* Wait for transmission complete */
-    uint32_t start_tick = GET_TICKS();
-    while (!LL_USART_IsActiveFlag_TC(handle->uart_instance)) {
-        if ((GET_TICKS() - start_tick) >= timeout_ms) {
-            result = UART_ABSTRACTION_TIMEOUT;
-            goto cleanup;
-        }
-    }
-    
-    result = UART_ABSTRACTION_OK;
-    
-#else
     /* HAL transmit */
     HAL_StatusTypeDef hal_result = HAL_UART_Transmit(handle->huart, data, size, timeout_ms);
     result = hal_to_abstraction_status(hal_result);
-#endif
     
 cleanup:
 #if USE_FREERTOS
@@ -261,30 +160,9 @@ uart_abstraction_status_t uart_abstraction_receive(uart_abstraction_handle_t *ha
     
     uart_abstraction_status_t result;
     
-#if USE_STM32_LL_DRIVERS
-    /* LL blocking receive implementation */
-    for (uint16_t i = 0; i < size; i++) {
-        uint32_t start_tick = GET_TICKS();
-        
-        /* Wait for data to be received */
-        while (!LL_USART_IsActiveFlag_RXNE(handle->uart_instance)) {
-            if ((GET_TICKS() - start_tick) >= timeout_ms) {
-                result = UART_ABSTRACTION_TIMEOUT;
-                goto cleanup;
-            }
-        }
-        
-        /* Read byte */
-        data[i] = LL_USART_ReceiveData8(handle->uart_instance);
-    }
-    
-    result = UART_ABSTRACTION_OK;
-    
-#else
     /* HAL receive */
     HAL_StatusTypeDef hal_result = HAL_UART_Receive(handle->huart, data, size, timeout_ms);
     result = hal_to_abstraction_status(hal_result);
-#endif
     
 cleanup:
 #if USE_FREERTOS
@@ -302,12 +180,8 @@ uart_abstraction_status_t uart_abstraction_transmit_it(uart_abstraction_handle_t
         return UART_ABSTRACTION_ERROR;
     }
     
-#if USE_STM32_LL_DRIVERS
-    return uart_ll_transmit(handle, data, size);
-#else
     HAL_StatusTypeDef hal_result = HAL_UART_Transmit_IT(handle->huart, data, size);
     return hal_to_abstraction_status(hal_result);
-#endif
 }
 
 uart_abstraction_status_t uart_abstraction_receive_it(uart_abstraction_handle_t *handle,
@@ -318,12 +192,8 @@ uart_abstraction_status_t uart_abstraction_receive_it(uart_abstraction_handle_t 
         return UART_ABSTRACTION_ERROR;
     }
     
-#if USE_STM32_LL_DRIVERS
-    return uart_ll_receive(handle, data, size);
-#else
     HAL_StatusTypeDef hal_result = HAL_UART_Receive_IT(handle->huart, data, size);
     return hal_to_abstraction_status(hal_result);
-#endif
 }
 
 uart_abstraction_status_t uart_abstraction_transmit_dma(uart_abstraction_handle_t *handle,
@@ -334,17 +204,11 @@ uart_abstraction_status_t uart_abstraction_transmit_dma(uart_abstraction_handle_
         return UART_ABSTRACTION_ERROR;
     }
     
-#if USE_STM32_LL_DRIVERS
-    /* LL DMA implementation would go here */
-    /* This is more complex and requires DMA LL configuration */
-    return UART_ABSTRACTION_ERROR; /* Not implemented yet */
-#else
     if (handle->hdma_tx == NULL) {
         return UART_ABSTRACTION_ERROR;
     }
     HAL_StatusTypeDef hal_result = HAL_UART_Transmit_DMA(handle->huart, data, size);
     return hal_to_abstraction_status(hal_result);
-#endif
 }
 
 uart_abstraction_status_t uart_abstraction_receive_dma(uart_abstraction_handle_t *handle,
@@ -355,17 +219,11 @@ uart_abstraction_status_t uart_abstraction_receive_dma(uart_abstraction_handle_t
         return UART_ABSTRACTION_ERROR;
     }
     
-#if USE_STM32_LL_DRIVERS
-    /* LL DMA implementation would go here */
-    /* This is more complex and requires DMA LL configuration */
-    return UART_ABSTRACTION_ERROR; /* Not implemented yet */
-#else
     if (handle->hdma_rx == NULL) {
         return UART_ABSTRACTION_ERROR;
     }
     HAL_StatusTypeDef hal_result = HAL_UART_Receive_DMA(handle->huart, data, size);
     return hal_to_abstraction_status(hal_result);
-#endif
 }
 
 uint16_t uart_abstraction_get_rx_count(uart_abstraction_handle_t *handle)
@@ -374,14 +232,10 @@ uint16_t uart_abstraction_get_rx_count(uart_abstraction_handle_t *handle)
         return 0;
     }
     
-#if USE_STM32_LL_DRIVERS
-    return handle->rx_count;
-#else
     if (handle->hdma_rx) {
         return handle->hdma_rx->Instance->NDTR;
     }
     return 0;
-#endif
 }
 
 void uart_abstraction_flush_rx(uart_abstraction_handle_t *handle)
@@ -390,15 +244,7 @@ void uart_abstraction_flush_rx(uart_abstraction_handle_t *handle)
         return;
     }
     
-#if USE_STM32_LL_DRIVERS
-    /* Clear RX flag and read data register */
-    if (LL_USART_IsActiveFlag_RXNE(handle->uart_instance)) {
-        LL_USART_ReceiveData8(handle->uart_instance);
-    }
-    LL_USART_ClearFlag_ORE(handle->uart_instance);
-#else
     __HAL_UART_CLEAR_OREFLAG(handle->huart);
-#endif
 }
 
 void uart_abstraction_flush_tx(uart_abstraction_handle_t *handle)
@@ -407,11 +253,7 @@ void uart_abstraction_flush_tx(uart_abstraction_handle_t *handle)
         return;
     }
     
-#if USE_STM32_LL_DRIVERS
-    LL_USART_ClearFlag_TC(handle->uart_instance);
-#else
     __HAL_UART_CLEAR_FLAG(handle->huart, UART_FLAG_TC);
-#endif
 }
 
 uint32_t uart_abstraction_is_tx_complete(uart_abstraction_handle_t *handle)
@@ -420,11 +262,7 @@ uint32_t uart_abstraction_is_tx_complete(uart_abstraction_handle_t *handle)
         return 0;
     }
     
-#if USE_STM32_LL_DRIVERS
-    return (handle->tx_state == UART_TX_IDLE_STATE) ? 1 : 0;
-#else
     return (handle->huart->gState == HAL_UART_STATE_READY) ? 1 : 0;
-#endif
 }
 
 uint32_t uart_abstraction_is_rx_complete(uart_abstraction_handle_t *handle)
@@ -433,11 +271,7 @@ uint32_t uart_abstraction_is_rx_complete(uart_abstraction_handle_t *handle)
         return 0;
     }
     
-#if USE_STM32_LL_DRIVERS
-    return (handle->rx_state == UART_RX_IDLE_STATE) ? 1 : 0;
-#else
     return (handle->huart->RxState == HAL_UART_STATE_READY) ? 1 : 0;
-#endif
 }
 
 /*******************************************************************************

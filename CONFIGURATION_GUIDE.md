@@ -6,12 +6,9 @@ This guide helps you quickly configure your STM32 UART Driver Plus for different
 
 | Use Case | HAL/LL | FreeRTOS | CMSIS-RTOS | Config Settings |
 |----------|--------|----------|------------|----------------|
-| **Bare Metal HAL** | HAL | ❌ | ❌ | `USE_STM32_LL_DRIVERS=0`, `USE_FREERTOS=0` |
-| **Bare Metal LL** | LL | ❌ | ❌ | `USE_STM32_LL_DRIVERS=1`, `USE_FREERTOS=0` |
-| **FreeRTOS HAL** | HAL | ✅ | ❌ | `USE_STM32_LL_DRIVERS=0`, `USE_FREERTOS=1`, `USE_CMSIS_RTOS=0` |
-| **FreeRTOS LL** | LL | ✅ | ❌ | `USE_STM32_LL_DRIVERS=1`, `USE_FREERTOS=1`, `USE_CMSIS_RTOS=0` |
-| **CMSIS-RTOS HAL** | HAL | ✅ | ✅ | `USE_STM32_LL_DRIVERS=0`, `USE_FREERTOS=1`, `USE_CMSIS_RTOS=1` |
-| **CMSIS-RTOS LL** | LL | ✅ | ✅ | `USE_STM32_LL_DRIVERS=1`, `USE_FREERTOS=1`, `USE_CMSIS_RTOS=1` |
+| **Bare Metal HAL** | HAL | ❌ | ❌ | `USE_FREERTOS=0` |
+| **FreeRTOS HAL** | HAL | ✅ | ❌ | `USE_FREERTOS=1`, `USE_CMSIS_RTOS=0` |
+| **CMSIS-RTOS HAL** | HAL | ✅ | ✅ | `USE_FREERTOS=1`, `USE_CMSIS_RTOS=1` |
 
 ## Quick Configuration Steps
 
@@ -19,9 +16,6 @@ This guide helps you quickly configure your STM32 UART Driver Plus for different
 
 ```c
 /* Choose your configuration by setting these defines: */
-
-/* Driver Layer Selection (choose one) */
-#define USE_STM32_LL_DRIVERS  0    // 0 = HAL, 1 = LL
 
 /* RTOS Configuration */
 #define USE_FREERTOS          1    // 0 = bare metal, 1 = FreeRTOS
@@ -37,12 +31,11 @@ This guide helps you quickly configure your STM32 UART Driver Plus for different
 #include "stm32f4xx_hal_dma.h"
 ```
 
-#### For LL Configuration:
+#### For HAL Configuration:
 ```c
-#include "stm32f4xx_ll_usart.h"     // Adjust for your STM32 series
-#include "stm32f4xx_ll_dma.h"
-#include "stm32f4xx_ll_gpio.h"
-#include "stm32f4xx_ll_rcc.h"
+#include "stm32f4xx_hal.h"          // Adjust for your STM32 series
+#include "stm32f4xx_hal_uart.h"
+#include "stm32f4xx_hal_dma.h"
 ```
 
 #### For FreeRTOS:
@@ -83,27 +76,7 @@ void uart_task(void *pvParameters) {
 }
 ```
 
-#### LL + FreeRTOS Example:
-```c
-// 1. Configure LL peripherals manually
-void configure_ll_peripherals(void) {
-    // GPIO configuration
-    LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOA);
-    LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_2, LL_GPIO_MODE_ALTERNATE);
-    LL_GPIO_SetPinAlternateFunction(GPIOA, LL_GPIO_PIN_2, LL_GPIO_AF_7);
-    // ... more GPIO config ...
-    
-    // UART configuration
-    LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_USART2);
-    LL_USART_SetBaudRate(USART2, 84000000, LL_USART_OVERSAMPLING_16, 115200);
-    LL_USART_Enable(USART2);
-}
-
-// 2. Initialize UART driver
-uart_drv_t uart_driver;
-uart_status_t result = uart_init_ll(&uart_driver, USART2, DMA1, DMA1, 
-                                    LL_DMA_STREAM_6, LL_DMA_STREAM_5);
-
+_(LL configurations and examples removed; the repository supports HAL-only. See `examples/freertos_example/` for HAL+RTOS examples)_
 // 3. Use same API as HAL version
 void uart_task(void *pvParameters) {
     uint8_t buffer[64];
@@ -147,29 +120,21 @@ uart_thread_id = osThreadNew(uart_thread, &uart_driver, &uart_thread_attr);
 | Configuration | Flash (KB) | RAM (KB) | Notes |
 |---------------|------------|----------|-------|
 | Bare Metal HAL | 8-12 | 1-2 | Minimal overhead |
-| Bare Metal LL | 4-6 | 0.5-1 | Smallest footprint |
 | FreeRTOS HAL | 15-20 | 4-8 | Includes RTOS overhead |
-| FreeRTOS LL | 12-16 | 3-6 | Better than HAL |
 | CMSIS-RTOS HAL | 16-22 | 5-9 | Additional wrapper overhead |
-| CMSIS-RTOS LL | 13-18 | 4-7 | Still better than HAL |
+  
 
 ### Execution Speed (relative):
 
 | Configuration | TX Speed | RX Speed | Interrupt Latency |
 |---------------|----------|----------|-------------------|
 | Bare Metal HAL | 100% | 100% | 100% |
-| Bare Metal LL | 120-150% | 120-150% | 80-90% |
 | FreeRTOS HAL | 85-95% | 85-95% | 110-120% |
-| FreeRTOS LL | 100-120% | 100-120% | 90-100% |
+  
 
 ## Migration Path
 
-### From HAL to LL:
-1. Change `USE_STM32_LL_DRIVERS` to `1`
-2. Replace HAL includes with LL includes
-3. Rewrite peripheral initialization code to use LL APIs
-4. Update interrupt handlers to use LL flag checking
-5. Change from `uart_init()` to `uart_init_ll()`
+_(LL mode support and migration instructions removed — this repo is HAL-only.)_
 
 ### From Bare Metal to FreeRTOS:
 1. Add FreeRTOS to your project
@@ -203,10 +168,10 @@ uart_thread_id = osThreadNew(uart_thread, &uart_driver, &uart_thread_attr);
    - Ensure interrupt priorities are configured correctly for FreeRTOS
    - Check that stack sizes for tasks are adequate
 
-4. **Poor performance with LL drivers:**
-   - Verify clock configuration is optimal
-   - Check that LL optimizations are enabled in compiler settings
-   - Ensure interrupt handlers are efficient
+4. **Performance Tips:**
+    - Verify clock configuration is optimal
+    - Check that compiler optimizations are enabled
+    - Ensure interrupt handlers are efficient
 
 ### Debug Tips:
 
@@ -224,17 +189,13 @@ To integrate with other RTOS (not FreeRTOS/CMSIS-RTOS):
 2. Implement your own mutex/semaphore wrappers in `uart_driver_config.h`
 3. Define custom tick and critical section macros
 
-### Mixed HAL/LL Usage:
-You can use HAL for some peripherals and LL for others:
-
-1. Configure only UART driver to use LL: modify abstraction layer
-2. Keep other peripherals using HAL
-3. Be careful about clock configuration consistency
+### Mixed HAL usage:
+This repository and the driver are HAL-only. If you need to mix HAL with other approaches, be sure to keep clock configuration and IRQ handling consistent.
 
 ### Real-time Applications:
 For hard real-time requirements:
 
-1. Use LL drivers for deterministic timing
+1. Choose appropriate HAL/DMA configurations and avoid blocking in high-priority interrupts
 2. Set appropriate FreeRTOS task priorities
-3. Consider using static memory allocation
+3. Consider using static memory allocation when possible
 4. Minimize interrupt disable time in critical sections

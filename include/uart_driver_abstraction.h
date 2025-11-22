@@ -1,10 +1,8 @@
 /**
  * @file uart_driver_abstraction.h
- * @brief Abstraction layer for STM32 HAL vs LL drivers
+ * @brief Abstraction layer for STM32 HAL driver
  *
- * This header provides a unified interface that works with both
- * STM32 HAL and LL (Low Layer) drivers, allowing the same UART
- * driver code to work with either underlying implementation.
+ * This header provides a unified interface implemented for STM32 HAL.
  */
 
 #ifndef UART_DRIVER_ABSTRACTION_H
@@ -19,28 +17,13 @@ extern "C" {
 /*******************************************************************************
  * Include appropriate headers based on configuration
  ******************************************************************************/
-#if USE_STM32_LL_DRIVERS
-  /* LL Driver includes */
-  #include "stm32f4xx_ll_usart.h"
-  #include "stm32f4xx_ll_dma.h"
-  #include "stm32f4xx_ll_gpio.h"
-  #include "stm32f4xx_ll_rcc.h"
-  
-  /* LL-specific type definitions */
-  typedef USART_TypeDef* UART_Instance_t;
-  typedef DMA_TypeDef*   DMA_Instance_t;
-  typedef uint32_t       DMA_Stream_t;
-  
-#else
-  /* HAL Driver includes */
-  #include "stm32f4xx_hal.h"
-  
-  /* HAL-specific type definitions */
-  typedef UART_HandleTypeDef* UART_Instance_t;
-  typedef DMA_HandleTypeDef*  DMA_Instance_t;
-  typedef uint32_t           DMA_Stream_t;
-  
-#endif
+/* HAL Driver includes (HAL-only repository) */
+#include "stm32f4xx_hal.h"
+
+/* HAL-specific type definitions */
+typedef UART_HandleTypeDef* UART_Instance_t;
+typedef DMA_HandleTypeDef*  DMA_Instance_t;
+typedef uint32_t           DMA_Stream_t;
 
 /*******************************************************************************
  * Unified Status Codes
@@ -56,19 +39,9 @@ typedef enum {
  * Unified Handle Structure
  ******************************************************************************/
 typedef struct {
-#if USE_STM32_LL_DRIVERS
-    USART_TypeDef *uart_instance;
-    DMA_TypeDef   *dma_tx_instance;
-    DMA_TypeDef   *dma_rx_instance;
-    uint32_t       dma_tx_stream;
-    uint32_t       dma_rx_stream;
-    uint32_t       dma_tx_channel;
-    uint32_t       dma_rx_channel;
-#else
     UART_HandleTypeDef *huart;
     DMA_HandleTypeDef  *hdma_tx;
     DMA_HandleTypeDef  *hdma_rx;
-#endif
     
     /* Common fields for both HAL and LL */
     volatile uint32_t tx_state;
