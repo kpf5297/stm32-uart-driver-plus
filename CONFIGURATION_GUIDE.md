@@ -23,28 +23,32 @@ This guide helps you quickly configure your STM32 UART Driver Plus for different
 
 ### Step 2: Include Appropriate Headers
 
-#### For HAL Configuration:
+#### For HAL Configuration
+
 ```c
 #include "stm32f4xx_hal.h"          // Adjust for your STM32 series
 #include "stm32f4xx_hal_uart.h"
 #include "stm32f4xx_hal_dma.h"
 ```
 
-#### For HAL Configuration:
+#### For HAL Configuration
+
 ```c
 #include "stm32f4xx_hal.h"          // Adjust for your STM32 series
 #include "stm32f4xx_hal_uart.h"
 #include "stm32f4xx_hal_dma.h"
 ```
 
-#### For FreeRTOS:
+#### For FreeRTOS
+
 ```c
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
 ```
 
-#### For CMSIS-RTOS:
+#### For CMSIS-RTOS
+
 ```c
 #include "cmsis_os.h"               // CMSIS-RTOS v1
 // or
@@ -53,7 +57,8 @@ This guide helps you quickly configure your STM32 UART Driver Plus for different
 
 ### Step 3: Initialization Examples
 
-#### HAL + FreeRTOS Example:
+#### HAL + FreeRTOS Example
+
 ```c
 // 1. Configure HAL peripherals (usually done by CubeMX)
 UART_HandleTypeDef huart2;
@@ -94,6 +99,7 @@ void uart_task(void *pvParameters) {
         }
     }
 }
+
 ```
 
 #### CMSIS-RTOS Example:
@@ -130,7 +136,7 @@ uart_thread_id = osThreadNew(uart_thread, &uart_driver, &uart_thread_attr);
 
 ## Performance Comparison
 
-### Memory Usage (approximate, STM32F4):
+### Memory Usage (approximate, STM32F4)
 
 | Configuration | Flash (KB) | RAM (KB) | Notes |
 |---------------|------------|----------|-------|
@@ -138,27 +144,27 @@ uart_thread_id = osThreadNew(uart_thread, &uart_driver, &uart_thread_attr);
 | FreeRTOS HAL | 15-20 | 4-8 | Includes RTOS overhead |
 | CMSIS-RTOS HAL | 16-22 | 5-9 | Additional wrapper overhead |
   
-
-### Execution Speed (relative):
+### Execution Speed (relative)
 
 | Configuration | TX Speed | RX Speed | Interrupt Latency |
 |---------------|----------|----------|-------------------|
 | Bare Metal HAL | 100% | 100% | 100% |
 | FreeRTOS HAL | 85-95% | 85-95% | 110-120% |
   
-
 ## Migration Path
 
 _(LL mode support and migration instructions removed — this repo is HAL-only.)_
 
-### From Bare Metal to FreeRTOS:
+### From Bare Metal to FreeRTOS
+
 1. Add FreeRTOS to your project
 2. Change `USE_FREERTOS` to `1`
 3. Replace polling loops with FreeRTOS tasks
 4. Use blocking APIs instead of non-blocking where appropriate
 5. Configure FreeRTOS heap and stack sizes appropriately
 
-### From FreeRTOS to CMSIS-RTOS:
+### From FreeRTOS to CMSIS-RTOS
+
 1. Add CMSIS-RTOS to your project
 2. Change `USE_CMSIS_RTOS` to `1`
 3. Replace FreeRTOS API calls with CMSIS-RTOS equivalents:
@@ -168,7 +174,7 @@ _(LL mode support and migration instructions removed — this repo is HAL-only.)
 
 ## Troubleshooting
 
-### Common Issues:
+### Common Issues
 
 1. **Compile errors about missing headers:**
    - Check that you have the correct STM32 HAL/LL libraries in your project
@@ -180,15 +186,24 @@ _(LL mode support and migration instructions removed — this repo is HAL-only.)
 
 3. **Runtime crashes or hard faults:**
    - Verify FreeRTOS heap size is sufficient (check `configTOTAL_HEAP_SIZE`)
+   - Linker file needs to match your memory layout:
+
+    ``` c
+        //Increase heap to accommodate RTOS dynamic allocations: message queues, TCBs, and buffers
+        _Min_Heap_Size = 0x4000;   // required amount of heap  (16 KB)
+        // Increase minimum stack to allow nested interrupts and larger stacks for main thread
+        _Min_Stack_Size = 0x800; // required amount of stack (2 KB) 
+    ```
+
    - Ensure interrupt priorities are configured correctly for FreeRTOS
    - Check that stack sizes for tasks are adequate
 
-4. **Performance Tips:**
+1. **Performance Tips:**
     - Verify clock configuration is optimal
     - Check that compiler optimizations are enabled
     - Ensure interrupt handlers are efficient
 
-### Debug Tips:
+### Debug Tips
 
 1. **Enable assertions** in FreeRTOS for development builds
 2. **Use RTT or SWO** for debugging instead of UART when testing UART code
@@ -197,17 +212,20 @@ _(LL mode support and migration instructions removed — this repo is HAL-only.)
 
 ## Advanced Configurations
 
-### Custom RTOS Integration:
+### Custom RTOS Integration
+
 To integrate with other RTOS (not FreeRTOS/CMSIS-RTOS):
 
 1. Set `USE_FREERTOS=0`
 2. Implement your own mutex/semaphore wrappers in your application or in `include/uart_driver.h` if you want to override defaults.
 3. Define custom tick and critical section macros
 
-### Mixed HAL usage:
+### Mixed HAL usage
+
 This repository and the driver are HAL-only. If you need to mix HAL with other approaches, be sure to keep clock configuration and IRQ handling consistent.
 
-### Real-time Applications:
+### Real-time Applications
+
 For hard real-time requirements:
 
 1. Choose appropriate HAL/DMA configurations and avoid blocking in high-priority interrupts
