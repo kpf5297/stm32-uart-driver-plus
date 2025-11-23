@@ -27,11 +27,31 @@ static void send_str(const char *s) {
  * @param args Command arguments (unused)
  */
 void cmd_help(Args *args) {
-    send_str("Available commands:\r\n");
+    /* Assemble into a single buffer and send via blocking DMA to avoid TX queue fragmentation */
+    const size_t HELP_BUF_SIZE = 512;
+    static char helpbuf[512];
+    size_t pos = 0;
+    int ret = snprintf(helpbuf + pos, HELP_BUF_SIZE - pos, "Available commands:\r\n");
+    if (ret > 0) pos += (size_t)ret;
     for (size_t i = 0; i < cmd_count; i++) {
-        send_str("  ");
-        send_str(cmd_list[i].name);
-        send_str("\r\n");
+        ret = snprintf(helpbuf + pos, HELP_BUF_SIZE - pos, "  %s\r\n", cmd_list[i].name);
+        if (ret < 0) break;
+        pos += (size_t)ret;
+        if (pos >= HELP_BUF_SIZE - 64) {
+            /* Flush current buffer to avoid overflow */
+            cmd_send_blocking(helpbuf);
+            pos = 0;
+        }
+    }
+    if (pos > 0) {
+        /* Ensure null-termination */
+        helpbuf[pos] = '\0';
+        uart_status_t s = cmd_send_blocking(helpbuf);
+        if (s != UART_OK) {
+            // Fallback: try non-blocking segmented writes so we still output
+            cmd_printf("DBG: cmd_send_blocking returned %d - fallback to non-blocking\r\n", (int)s);
+            send_str(helpbuf);
+        }
     }
 }
 

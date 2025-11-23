@@ -156,6 +156,15 @@ void          uart_flush_tx        (uart_drv_t *drv);
 /** Retrieve last operation status. */
 uart_status_t uart_get_status      (uart_drv_t *drv);
 
+/** Return current queued TX node count for debugging/diagnostics. */
+size_t uart_get_tx_queue_count(uart_drv_t *drv);
+/** Return number of free tx pool nodes (for diagnostics) */
+size_t uart_get_tx_pool_free_count(uart_drv_t *drv);
+/** Return total tx pool node count (for diagnostics) */
+size_t uart_get_tx_pool_total_count(uart_drv_t *drv);
+/** Return number of times queued TX allocation failed (fallbacks) */
+size_t uart_get_tx_fallback_count(uart_drv_t *drv);
+
 /**
  * @brief Internal state structure for a UART instance.
  */

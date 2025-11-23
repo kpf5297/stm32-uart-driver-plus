@@ -53,6 +53,8 @@ void cmd_init(uart_drv_t *uart);
 void cmd_write(const char *s);
 /** printf style helper using the interpreter's UART. */
 void cmd_printf(const char *fmt, ...);
+/** Send a string as a single blocking DMA transfer. */
+uart_status_t cmd_send_blocking(const char *s);
 
 #else
 

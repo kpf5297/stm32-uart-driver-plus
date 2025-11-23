@@ -19,7 +19,7 @@
 #define CMD_TASK_DELAY_MS 1
 #define CMD_PROMPT_SIZE 2
 
-static osMessageQueueId_t rx_queue;
+static osThreadId_t cmd_task_id = NULL;
 static uart_drv_t   *uart;
 // Circular RX buffer; command parser expects line-length sized buffer
 static uint8_t       rx_circ_buf[CMD_MAX_LINE_LEN];
@@ -39,6 +39,16 @@ static void cmd_tx_bytes(const uint8_t *buf, size_t len)
     }
     /* Enforce DMA-only: if HDMA not available, silently return to avoid blocking */
     (void)uart; (void)buf; (void)len;
+}
+
+/**
+ * @brief Send a string as a single blocking DMA transfer.
+ * @param s Null-terminated string to send
+ * @return uart_status_t from uart_send_blocking
+ */
+uart_status_t cmd_send_blocking(const char *s) {
+    if (!uart || !s) return UART_ERROR;
+    return uart_send_blocking(uart, (const uint8_t*)s, strlen(s), CMD_UART_TIMEOUT_MS);
 }
 
 // Simple helpers for command handlers
@@ -76,15 +86,9 @@ void cmd_printf(const char *fmt, ...) {
  * @param ctx Context pointer (points to rx_byte)
  */
 static void uart_event_cb(uart_event_t evt, void *ctx) {
-    if (evt == UART_EVT_RX_COMPLETE) {
-        uint8_t *b = ctx;
-        osMessageQueuePut(rx_queue, b, 0, 0);
-    } else if (evt == UART_EVT_RX_AVAILABLE) {
-        uint8_t tmpbuf[CMD_MAX_LINE_LEN];
-        size_t read = uart_read_from_circular(uart, tmpbuf, sizeof(tmpbuf));
-        for (size_t i = 0; i < read; ++i) {
-            osMessageQueuePut(rx_queue, &tmpbuf[i], 0, 0);
-        }
+    (void)ctx;
+    if ((evt == UART_EVT_RX_COMPLETE) || (evt == UART_EVT_RX_AVAILABLE)) {
+        if (cmd_task_id) osThreadFlagsSet(cmd_task_id, 1u);
     }
 }
 
@@ -104,12 +108,14 @@ static void cmd_task(void *pvParameters) {
     cmd_tx_bytes((const uint8_t*)prompt, strlen(prompt));
 
     for (;;) {
-        // Wait for next byte
-        if (osMessageQueueGet(rx_queue, &byte, NULL, osWaitForever) == osOK) {
-                    // Note: No re-arm for circular DMA: bytes are processed by the
-                    // UART_EVT_RX_AVAILABLE notification and read out via the
-                    // uart_read_from_circular API.
-                // Echo input
+        // Wait until ISR signals data available
+        osThreadFlagsWait(1u, osFlagsWaitAny, osWaitForever);
+        // Read available bytes from circular DMA into tmpbuf
+        uint8_t tmpbuf[CMD_MAX_LINE_LEN];
+        size_t read = uart_read_from_circular(uart, tmpbuf, sizeof(tmpbuf));
+        for (size_t r = 0; r < read; ++r) {
+            byte = tmpbuf[r];
+            // Echo input
             cmd_tx_bytes(&byte, 1);
 
             // Check for end-of-line
@@ -160,7 +166,6 @@ static void cmd_task(void *pvParameters) {
  */
 void cmd_init(uart_drv_t *uart_drv) {
     uart = uart_drv;
-    rx_queue = osMessageQueueNew(CMD_MAX_LINE_LEN, sizeof(uint8_t), NULL);
     // Register ISR callback (ctx not used for circular mode)
     uart_register_callback(uart, uart_event_cb, NULL);
     // Start circular DMA RX into rx_circ_buf and enable IDLE notifications
@@ -169,7 +174,7 @@ void cmd_init(uart_drv_t *uart_drv) {
     osThreadAttr_t attr = {0};
     attr.priority = CMD_TASK_PRIO;
     attr.stack_size = CMD_TASK_STACK;
-    osThreadNew(cmd_task, NULL, &attr);
+    cmd_task_id = osThreadNew(cmd_task, NULL, &attr);
 }
 
 

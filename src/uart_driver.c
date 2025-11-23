@@ -24,6 +24,8 @@ static size_t      uart_instance_count = 0;
 static uart_tx_node_t tx_node_pool[UART_TX_NODE_COUNT];
 static uart_tx_node_t *tx_free_list = NULL;
 static bool tx_pool_initialized = false;
+/* Diagnostics: counts of fallback allocations when pool empty */
+static volatile size_t tx_fallback_count = 0;
 /* No RX node pool: circular-only RX mode enabled */
 
 static void tx_pool_init(void) {
@@ -51,6 +53,10 @@ static uart_tx_node_t *tx_pool_alloc(void) {
         n->in_use = true;
     }
     FAULT_EXIT_CRITICAL();
+    if (!n) {
+        /* Keep a running count when allocations fail so we can diagnose TX pool exhaustion */
+        tx_fallback_count++;
+    }
     return n;
 }
 
@@ -325,6 +331,10 @@ uart_status_t uart_send_dma_blocking(uart_drv_t *drv, const uint8_t *data,
         return UART_BUSY;
     }
 
+    /* If a non-blocking queued TX is in progress, wait until it finishes */
+    while (drv->tx_status == UART_BUSY) {
+        osDelay(TASK_DELAY_MS);
+    }
     drv->tx_status = UART_BUSY;
     if (HAL_UART_Transmit_DMA(drv->huart, (uint8_t *)data, len) != HAL_OK) {
                 drv->tx_status = UART_ERROR;
@@ -359,6 +369,32 @@ size_t uart_bytes_available(uart_drv_t *drv) {
     }
     /* Non-circular mode removed; only circular mode is supported. */
     return 0;
+}
+
+size_t uart_get_tx_queue_count(uart_drv_t *drv) {
+    if (!drv) return 0;
+    return drv->tx_queue_count;
+}
+
+size_t uart_get_tx_pool_free_count(uart_drv_t *drv) {
+    (void)drv; /* pool is global across instances */
+    if (!tx_pool_initialized) return UART_TX_NODE_COUNT;
+    size_t c = 0;
+    FAULT_ENTER_CRITICAL();
+    uart_tx_node_t *n = tx_free_list;
+    while (n) { c++; n = n->next; }
+    FAULT_EXIT_CRITICAL();
+    return c;
+}
+
+size_t uart_get_tx_pool_total_count(uart_drv_t *drv) {
+    (void)drv;
+    return UART_TX_NODE_COUNT;
+}
+
+size_t uart_get_tx_fallback_count(uart_drv_t *drv) {
+    (void)drv;
+    return tx_fallback_count;
 }
 
 void uart_flush_rx(uart_drv_t *drv) {
