@@ -3,7 +3,7 @@
  * @brief Fault management and tracking system.
  */
 #include "fault_module.h"
-#include "uart_driver_config.h"
+#include "uart_driver.h"
 #include <string.h>
 #include <stdio.h>
 

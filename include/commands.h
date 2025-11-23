@@ -5,7 +5,7 @@
  * @brief CLI command handlers for demo application.
  */
 
-#include "uart_driver_config.h"
+#include "command_module.h"
 
 #if USE_CMD_INTERPRETER
 #include "command_module.h"

@@ -1,6 +1,6 @@
 # Usage Guide
 
-This document explains how to configure and integrate **STM32 UART Driver Plus** into your project. All configuration options reside in `include/uart_driver_config.h`.
+This document explains how to configure and integrate **STM32 UART Driver Plus** into your project. Configuration is now module-level via `include/uart_driver.h` and per-module headers such as `include/logging.h` and `include/command_module.h`.
 
 ## Configuration Macros
 
@@ -8,7 +8,7 @@ The following macros control feature inclusion and memory footprints. Adjust the
 
 | Macro | Description |
 |-------|-------------|
-|`UART_TX_MODE`|0=blocking, 1=interrupt, 2=DMA for all modules.|
+|`UART_TX_MODE`|Transmission mode. This top-level module enforces DMA-only operation; per-module defaults can be found in `include/uart_driver.h` and per-module headers.| 
 |`USE_CMD_INTERPRETER`|Set to `1` to enable the command interpreter task.|
 |`LOGGING_ENABLED`|Enable the logging module when non-zero.|
 |`TELEMETRY_ENABLED`|Enable the telemetry helper when non-zero.|
@@ -24,7 +24,7 @@ The following macros control feature inclusion and memory footprints. Adjust the
 |`LOG_TASK_STACK`|Stack size for the log processing task.|
 |`LOG_TASK_PRIO`|Priority of the log processing task.|
 
-These defaults are visible in [`uart_driver_config.h`](include/uart_driver_config.h).
+These defaults are visible in the module headers: `include/uart_driver.h`, `include/logging.h`, and `include/command_module.h`.
 
 ## Basic Driver Setup
 
@@ -36,13 +36,12 @@ These defaults are visible in [`uart_driver_config.h`](include/uart_driver_confi
    uart_system_init(&uart, &huart, &hdma_tx, &hdma_rx); // DMA handles may be NULL
    ```
 
-3. Use the blocking or non-blocking APIs to transmit and receive:
+3. Use the TX APIs to transmit and enable circular RX with IDLE detection for receive:
 
    ```c
    uart_send_blocking(&uart, data, len, timeout_ms);
-   uart_receive_blocking(&uart, buf, len, timeout_ms);
-   uart_send_nb(&uart, data, len);    // interrupt mode
-
+   uart_send_nb(&uart, data, len);    // non-blocking, enqueues data to TX queue (DMA driven)
+   ```
 ## Command Interpreter
 
 `uart_system_init()` automatically starts the interpreter when `USE_CMD_INTERPRETER` is set. You can also call `cmd_init()` manually if finer control is required.
@@ -82,4 +81,18 @@ Add `_scanf_float` in the same manner if floating-point scanning is required.
 ## Examples
 
 Complete integration examples using FreeRTOS are provided under [`examples/freertos_example`](examples/freertos_example).
+## Circular DMA (RX) + IDLE Detection
+
+The driver supports circular DMA mode for low-latency receive with IDLE line detection. This is ideal for processing variable-length ASCII lines or packets with lower CPU overhead.
+
+To start circular DMA for RX and enable IDLE detection, call:
+
+```c
+uint8_t rxbuf[CMD_MAX_LINE_LEN];
+uart_register_callback(&uart, uart_event_cb, NULL); // register callback
+uart_start_circular_rx(&uart, rxbuf, sizeof(rxbuf));
+```
+
+When the UART detects an IDLE condition, the driver will call the registered callback with `UART_EVT_RX_AVAILABLE`. In that callback, call `uart_read_from_circular` to pull up to a desired number of bytes from the circular buffer. This avoids repeated 1-byte DMA re-arms and reduces ISR work.
+
 `main_wo_Command.c` demonstrates a minimal setup without the command interpreter, while `main_w_Command.c` showcases a feature-rich setup with the command interpreter enabled.

@@ -2,22 +2,27 @@
 
 **Version 1.2**
 
-A professional, modular UART driver package for STM32 microcontrollers designed for robust integration in FreeRTOS-based systems. Uses STM32 HAL drivers exclusively (LL removed).
+A professional, modular UART driver package for STM32 microcontrollers designed for robust integration with CMSIS-RTOS v2 (FreeRTOS backend). Uses STM32 HAL drivers exclusively (LL removed).
 
 ## Key Features
 
+- **HAL Driver Support**: Uses STM32 HAL drivers for portability and simplicity.
+-- **RTOS Integration**: Full compatibility with CMSIS-RTOS v2 (FreeRTOS backend)
+- **Modular Architecture**: Optional command interpreter, logging, and telemetry modules
+- **Thread-Safe Operations**: Mutex-protected APIs for multi-task environments
+ - **Operation Mode**: DMA-only (blocking/non-blocking APIs delegate to DMA)
+- **Error Handling**: Comprehensive error detection and recovery mechanisms
 
 ## Architecture Overview
 
 | STM32 HAL | None | Good | Medium | Low |
 | STM32 HAL | FreeRTOS/CMSIS | Good | High | Low |
 
-Edit `include/uart_driver_config.h` to select your target configuration:
+Configuration is now module-level; edit `include/uart_driver.h` and per-module headers to select your desired defaults:
 
 ```c
 #define USE_STM32_HAL_DRIVERS  1    // HAL is the supported driver layer
-#define USE_FREERTOS          1    // Enable FreeRTOS support
-#define USE_CMSIS_RTOS        1    // Enable CMSIS-RTOS wrapper
+/* CMSIS v2 (FreeRTOS backend) is required; configuration should use CMSIS-RTOS v2 APIs */
 ```
 
 ### Basic Integration
@@ -41,14 +46,14 @@ uart_send_blocking(&uart_driver, data, strlen((char*)data), 1000);
 
 - Complete HAL + FreeRTOS project: `examples/freertos_example/`
 -- HAL + FreeRTOS implementation: `examples/freertos_example/`
-- Detailed configuration guide: `CMSIS_FREERTOS_LL_GUIDE.md`
+- Detailed configuration guide: `CMSIS_FREERTOS_GUIDE.md`
 - API usage examples: `usage.md`
 
 ## Module Architecture
 
 ### UART Driver Core
 - Configurable communication parameters (baud rate, data bits, parity, stop bits)
-- Multiple transmission modes: blocking, interrupt, and DMA
+ - Transmission mode: DMA-only (blocking/non-blocking APIs delegate to DMA). Non-blocking APIs are queue-backed (TX/RX queues) and safe to call from ISRs or tasks.
 - Comprehensive error handling (overrun, framing, noise detection)
 - Thread-safe operation with mutex protection
 - Support for STM32 HAL drivers
@@ -66,7 +71,7 @@ uart_send_blocking(&uart_driver, data, strlen((char*)data), 1000);
 - Background processing with dedicated tasks
 
 ### Configuration Management
-- Centralized configuration in `uart_driver_config.h`
+ - Module-level configuration in `include/uart_driver.h`, `include/logging.h`, and `include/command_module.h`
 - Runtime feature enabling/disabling
 - Configurable memory footprints and task parameters
 
@@ -78,7 +83,7 @@ uart_send_blocking(&uart_driver, data, strlen((char*)data), 1000);
 
 **Software:**
 - STM32 HAL drivers
-- Optional: FreeRTOS or CMSIS-RTOS
+- CMSIS-RTOS v2 (FreeRTOS backend) required for RTOS-enabled features
 - Standard C library (newlib/newlib-nano supported)
 
 **Configuration Parameters:**
@@ -89,7 +94,7 @@ uart_send_blocking(&uart_driver, data, strlen((char*)data), 1000);
 ## Quality Assurance
 
 **Design Principles:**
-- **Portability:** Standard STM32 HAL/LL driver compatibility
+- **Portability:** Standard STM32 HAL driver compatibility
 - **Configurability:** Tunable memory footprints and feature sets
 - **Reliability:** Error recovery mechanisms without system deadlock
 - **Thread Safety:** Mutex-protected operations for concurrent access

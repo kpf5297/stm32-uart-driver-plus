@@ -1,7 +1,0 @@
-C:/Code/stm32-uart-driver-plus/examples/freertos_example/CMakeFiles/freertos_example.dir
-C:/Code/stm32-uart-driver-plus/examples/freertos_example/CMakeFiles/edit_cache.dir
-C:/Code/stm32-uart-driver-plus/examples/freertos_example/CMakeFiles/rebuild_cache.dir
-C:/Code/stm32-uart-driver-plus/examples/freertos_example/cmake/stm32cubemx/CMakeFiles/STM32_Drivers.dir
-C:/Code/stm32-uart-driver-plus/examples/freertos_example/cmake/stm32cubemx/CMakeFiles/FreeRTOS.dir
-C:/Code/stm32-uart-driver-plus/examples/freertos_example/cmake/stm32cubemx/CMakeFiles/edit_cache.dir
-C:/Code/stm32-uart-driver-plus/examples/freertos_example/cmake/stm32cubemx/CMakeFiles/rebuild_cache.dir

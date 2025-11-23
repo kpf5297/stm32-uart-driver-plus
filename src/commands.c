@@ -6,10 +6,8 @@
  * arithmetic operations, fault management, and logging control.
  */
 
-#include "uart_driver_config.h"
-#if USE_CMD_INTERPRETER
-
 #include "commands.h"
+#if USE_CMD_INTERPRETER
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

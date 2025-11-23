@@ -4,7 +4,7 @@
  * 
  * Provides a lightweight command-line interface that processes commands
  * received via UART and dispatches them to registered handlers. Uses
- * FreeRTOS queues for thread-safe operation.
+ * CMSIS-RTOS v2 message queues for thread-safe operation.
  */
 #include "command_module.h"
 #include "commands.h"
@@ -19,9 +19,10 @@
 #define CMD_TASK_DELAY_MS 1
 #define CMD_PROMPT_SIZE 2
 
-static QueueHandle_t rx_queue;
+static osMessageQueueId_t rx_queue;
 static uart_drv_t   *uart;
-static uint8_t       rx_byte;
+// Circular RX buffer; command parser expects line-length sized buffer
+static uint8_t       rx_circ_buf[CMD_MAX_LINE_LEN];
 
 /**
  * @brief Transmit raw bytes using the configured UART mode.
@@ -30,24 +31,14 @@ static uint8_t       rx_byte;
  */
 static void cmd_tx_bytes(const uint8_t *buf, size_t len)
 {
-#if UART_TX_MODE == UART_MODE_DMA
+    /* DMA-only operation (enforced in config) */
     if (uart && uart->hdma_tx) {
-        uart_send_dma_blocking(uart, buf, len, CMD_UART_TIMEOUT_MS);
+        /* Use queued non-blocking TX for command echoes */
+        uart_send_nb(uart, buf, len);
         return;
     }
-#elif UART_TX_MODE == UART_MODE_INTERRUPT
-    if (uart) {
-        if (uart_send_nb(uart, buf, len) == UART_OK) {
-            while (uart_get_status(uart) == UART_BUSY) {
-                vTaskDelay(pdMS_TO_TICKS(CMD_TASK_DELAY_MS));
-            }
-        }
-        return;
-    }
-#endif
-    if (uart) {
-        uart_send_blocking(uart, buf, len, CMD_UART_TIMEOUT_MS);
-    }
+    /* Enforce DMA-only: if HDMA not available, silently return to avoid blocking */
+    (void)uart; (void)buf; (void)len;
 }
 
 // Simple helpers for command handlers
@@ -87,15 +78,13 @@ void cmd_printf(const char *fmt, ...) {
 static void uart_event_cb(uart_event_t evt, void *ctx) {
     if (evt == UART_EVT_RX_COMPLETE) {
         uint8_t *b = ctx;
-        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-        xQueueSendFromISR(rx_queue, b, &xHigherPriorityTaskWoken);
-        // Re-arm next RX based on driver config
-        if (uart->hdma_rx) {
-            uart_start_dma_rx(uart, &rx_byte, 1);
-        } else {
-            uart_receive_nb(uart, &rx_byte, 1);
+        osMessageQueuePut(rx_queue, b, 0, 0);
+    } else if (evt == UART_EVT_RX_AVAILABLE) {
+        uint8_t tmpbuf[CMD_MAX_LINE_LEN];
+        size_t read = uart_read_from_circular(uart, tmpbuf, sizeof(tmpbuf));
+        for (size_t i = 0; i < read; ++i) {
+            osMessageQueuePut(rx_queue, &tmpbuf[i], 0, 0);
         }
-        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
     }
 }
 
@@ -116,8 +105,11 @@ static void cmd_task(void *pvParameters) {
 
     for (;;) {
         // Wait for next byte
-        if (xQueueReceive(rx_queue, &byte, portMAX_DELAY) == pdPASS) {
-            // Echo input
+        if (osMessageQueueGet(rx_queue, &byte, NULL, osWaitForever) == osOK) {
+                    // Note: No re-arm for circular DMA: bytes are processed by the
+                    // UART_EVT_RX_AVAILABLE notification and read out via the
+                    // uart_read_from_circular API.
+                // Echo input
             cmd_tx_bytes(&byte, 1);
 
             // Check for end-of-line
@@ -168,17 +160,16 @@ static void cmd_task(void *pvParameters) {
  */
 void cmd_init(uart_drv_t *uart_drv) {
     uart = uart_drv;
-    rx_queue = xQueueCreate(CMD_MAX_LINE_LEN, sizeof(uint8_t));
-    // Register ISR callback
-    uart_register_callback(uart, uart_event_cb, &rx_byte);
-    // Kick off first RX based on driver config
-    if (uart->hdma_rx) {
-        uart_start_dma_rx(uart, &rx_byte, 1);
-    } else {
-        uart_receive_nb(uart, &rx_byte, 1);
-    }
+    rx_queue = osMessageQueueNew(CMD_MAX_LINE_LEN, sizeof(uint8_t), NULL);
+    // Register ISR callback (ctx not used for circular mode)
+    uart_register_callback(uart, uart_event_cb, NULL);
+    // Start circular DMA RX into rx_circ_buf and enable IDLE notifications
+    uart_start_circular_rx(uart, rx_circ_buf, sizeof(rx_circ_buf));
     // Launch the processing task
-    xTaskCreate(cmd_task, "CmdIf", CMD_TASK_STACK, NULL, CMD_TASK_PRIO, NULL);
+    osThreadAttr_t attr = {0};
+    attr.priority = CMD_TASK_PRIO;
+    attr.stack_size = CMD_TASK_STACK;
+    osThreadNew(cmd_task, NULL, &attr);
 }
 
 

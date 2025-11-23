@@ -8,11 +8,30 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "uart_driver.h"
-#include "FreeRTOS.h"
-#include "queue.h"
-#include "task.h"
-#include "semphr.h"
-#include "uart_driver_config.h"
+#include "cmsis_os2.h"
+
+/* Module-level logging defaults; applications may override before including this header. */
+#ifndef LOGGING_ENABLED
+#define LOGGING_ENABLED 1
+#endif
+#ifndef LOG_QUEUE_DEPTH
+#define LOG_QUEUE_DEPTH 32
+#endif
+#ifndef TELEMETRY_QUEUE_DEPTH
+#define TELEMETRY_QUEUE_DEPTH 16
+#endif
+#ifndef MAX_LOG_PAYLOAD
+#define MAX_LOG_PAYLOAD 128
+#endif
+#ifndef DEFAULT_LOG_LEVEL
+#define DEFAULT_LOG_LEVEL LOG_LEVEL_INFO
+#endif
+#ifndef LOG_TASK_STACK
+#define LOG_TASK_STACK 1024
+#endif
+#ifndef LOG_TASK_PRIO
+#define LOG_TASK_PRIO osPriorityNormal
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -54,6 +73,7 @@ typedef struct {
  */
 void log_init(uart_drv_t *drv);
 
+/* Internal message queues handled in logging.c */
 /**
  * @brief Queue a formatted log message.
  *

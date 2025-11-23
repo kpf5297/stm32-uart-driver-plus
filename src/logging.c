@@ -19,8 +19,8 @@
 
 // Module state
 static uart_drv_t *log_uart = NULL;
-static QueueHandle_t log_queue = NULL;
-static QueueHandle_t telemetry_queue = NULL;
+static osMessageQueueId_t log_queue = NULL;
+static osMessageQueueId_t telemetry_queue = NULL;
 static LogLevel current_level = LOG_LEVEL_INFO;
 
 /**
@@ -31,24 +31,13 @@ static LogLevel current_level = LOG_LEVEL_INFO;
  */
 static void log_tx(const uint8_t *data, size_t len, bool telemetry)
 {
-#if UART_TX_MODE == UART_MODE_DMA
+    /* DMA-only operation */
     if (log_uart && log_uart->hdma_tx) {
-        uart_send_dma_blocking(log_uart, data, len, DEFAULT_UART_TIMEOUT_MS);
+        uart_send_nb(log_uart, (uint8_t *)data, len);
         return;
     }
-#elif UART_TX_MODE == UART_MODE_INTERRUPT
-    if (log_uart) {
-        if (uart_send_nb(log_uart, data, len) == UART_OK) {
-            while (uart_get_status(log_uart) == UART_BUSY) {
-                vTaskDelay(pdMS_TO_TICKS(TASK_DELAY_MS));
-            }
-        }
-        return;
-    }
-#endif
-    if (log_uart) {
-        uart_send_blocking(log_uart, data, len, DEFAULT_UART_TIMEOUT_MS);
-    }
+    /* Enforce DMA-only: if no HDMA, silently ignore */
+    (void)data; (void)len; (void)telemetry;
 }
 
 // Internal task prototypes
@@ -64,7 +53,7 @@ static void perform_fault_check(char *out_buf, size_t len);
  */
 static Timestamp get_current_timestamp(void)
 {
-    TickType_t ticks = xTaskGetTickCount();
+    uint32_t ticks = (uint32_t)GET_TICKS();
     Timestamp ts;
     ts.seconds = ticks / TIMESTAMP_SCALE_FACTOR;
     ts.subseconds = ticks % TIMESTAMP_SCALE_FACTOR;
@@ -79,12 +68,15 @@ void log_init(uart_drv_t *drv)
 {
 #if LOGGING_ENABLED
     log_uart = drv;
-    log_queue = xQueueCreate(LOG_QUEUE_DEPTH, sizeof(LogEntry));
-    telemetry_queue = xQueueCreate(16, sizeof(TelemetryPacket));
+    log_queue = osMessageQueueNew(LOG_QUEUE_DEPTH, sizeof(LogEntry), NULL);
+    telemetry_queue = osMessageQueueNew(TELEMETRY_QUEUE_DEPTH, sizeof(TelemetryPacket), NULL);
     fault_init();
 
     if (log_queue) {
-        xTaskCreate(log_task, "Logger", LOG_TASK_STACK, NULL, LOG_TASK_PRIO, NULL);
+        osThreadAttr_t attr = {0};
+        attr.priority = LOG_TASK_PRIO;
+        attr.stack_size = LOG_TASK_STACK;
+        osThreadNew(log_task, NULL, &attr);
     }
 #endif
 }
@@ -109,7 +101,7 @@ void log_write(LogLevel level, const char *fmt, ...)
     vsnprintf(entry.payload, sizeof(entry.payload), fmt, args);
     va_end(args);
 
-    xQueueSend(log_queue, &entry, 0);  // No block if queue full
+    osMessageQueuePut(log_queue, &entry, 0, 0);  // No block if queue full
 #endif
 }
 
@@ -117,7 +109,7 @@ void telemetry_send(const TelemetryPacket *pkt)
 {
 #if LOGGING_ENABLED
     if (telemetry_queue && pkt) {
-        xQueueSend(telemetry_queue, pkt, 0);  // No blocking
+        osMessageQueuePut(telemetry_queue, pkt, 0, 0);  // No blocking
     }
 #endif
 }
@@ -148,7 +140,7 @@ static void log_task(void *arg)
 static void process_log_queue(char *out_buf, size_t len)
 {
     LogEntry entry;
-    if (xQueueReceive(log_queue, &entry, pdMS_TO_TICKS(LOG_TASK_DELAY_MS)) == pdPASS) {
+    if (osMessageQueueGet(log_queue, &entry, NULL, MS_TO_TICKS(LOG_TASK_DELAY_MS)) == osOK) {
         int out_len = snprintf(out_buf, len,
                                "[%lu.%03lu] [%d] %s\r\n",
                                entry.ts.seconds,
@@ -162,7 +154,7 @@ static void process_log_queue(char *out_buf, size_t len)
 static void process_telemetry_queue(char *out_buf, size_t len)
 {
     TelemetryPacket pkt;
-    if (xQueueReceive(telemetry_queue, &pkt, 0) == pdPASS) {
+    if (osMessageQueueGet(telemetry_queue, &pkt, NULL, 0) == osOK) {
         int out_len = snprintf(out_buf, len,
                                "[%lu.%03lu] TLM sensor1=%lu sensor2=%.2f\r\n",
                                get_current_timestamp().seconds,
@@ -174,9 +166,9 @@ static void process_telemetry_queue(char *out_buf, size_t len)
 
 static void perform_fault_check(char *out_buf, size_t len)
 {
-    static TickType_t last_fault_check = 0;
-    TickType_t now = xTaskGetTickCount();
-    if (now - last_fault_check >= pdMS_TO_TICKS(FAULT_CHECK_INTERVAL_MS)) {
+    static uint32_t last_fault_check = 0;
+    uint32_t now = GET_TICKS();
+    if ((now - last_fault_check) >= MS_TO_TICKS(FAULT_CHECK_INTERVAL_MS)) {
         last_fault_check = now;
         if (fault_state.active_mask) {
             Timestamp ts = get_current_timestamp();

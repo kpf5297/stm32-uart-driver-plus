@@ -7,19 +7,18 @@ This guide helps you quickly configure your STM32 UART Driver Plus for different
 | Use Case | HAL/LL | FreeRTOS | CMSIS-RTOS | Config Settings |
 |----------|--------|----------|------------|----------------|
 | **Bare Metal HAL** | HAL | ❌ | ❌ | `USE_FREERTOS=0` |
-| **FreeRTOS HAL** | HAL | ✅ | ❌ | `USE_FREERTOS=1`, `USE_CMSIS_RTOS=0` |
-| **CMSIS-RTOS HAL** | HAL | ✅ | ✅ | `USE_FREERTOS=1`, `USE_CMSIS_RTOS=1` |
+| **FreeRTOS HAL** | HAL | ✅ | ❌ | Deprecated - use CMSIS-RTOS v2 wrapper |
+| **CMSIS-RTOS HAL** | HAL | ✅ | ✅ | Use CMSIS-RTOS v2 (no macros required) |
+| **DMA-only HAL** | HAL | ✅ | ✅ | This repo enforces DMA-only for performance and predictability |
 
 ## Quick Configuration Steps
 
-### Step 1: Edit `uart_driver_config.h`
+### Step 1: Edit module headers (`include/uart_driver.h`, `include/logging.h`, `include/command_module.h`)
 
 ```c
 /* Choose your configuration by setting these defines: */
-
 /* RTOS Configuration */
-#define USE_FREERTOS          1    // 0 = bare metal, 1 = FreeRTOS
-#define USE_CMSIS_RTOS        0    // 0 = direct FreeRTOS, 1 = CMSIS-RTOS wrapper
+/* CMSIS-RTOS v2 is required for RTOS features; this repo is DMA-only */
 ```
 
 ### Step 2: Include Appropriate Headers
@@ -68,10 +67,19 @@ uart_status_t result = uart_init(&uart_driver, &huart2, &hdma_usart2_tx, &hdma_u
 // 3. Use in FreeRTOS tasks
 void uart_task(void *pvParameters) {
     uint8_t buffer[64];
+    // Circular DMA RX: polling/read loop
+    uint8_t circ_storage[64];
+    uart_start_circular_rx(&uart_driver, circ_storage, sizeof(circ_storage));
     while(1) {
-        if (uart_receive_blocking(&uart_driver, buffer, 1, 100) == UART_OK) {
-            uart_send_blocking(&uart_driver, buffer, 1, 100);
+        size_t available = uart_bytes_available(&uart_driver);
+        if (available) {
+            uint8_t b;
+            size_t n = uart_read_from_circular(&uart_driver, &b, 1);
+            if (n) {
+                uart_send_blocking(&uart_driver, &b, 1, 100);
+            }
         }
+        osDelay(1);
     }
 }
 ```
@@ -95,11 +103,18 @@ void uart_thread(void *argument) {
     uart_drv_t *uart = (uart_drv_t*)argument;
     uint8_t buffer[64];
     
+    // In CMSIS-RTOS use circular DMA and event-driven or polling reads.
+    uint8_t circ_storage[64];
+    uart_start_circular_rx(uart, circ_storage, sizeof(circ_storage));
     while(1) {
-        if (uart_receive_blocking(uart, buffer, 1, 100) == UART_OK) {
-            uart_send_blocking(uart, buffer, 1, 100);
+        size_t available = uart_bytes_available(uart);
+        if (available) {
+            uint8_t b;
+            if (uart_read_from_circular(uart, &b, 1)) {
+                uart_send_blocking(uart, &b, 1, 100);
+            }
         }
-        osDelay(1);  // CMSIS-RTOS delay instead of vTaskDelay
+        osDelay(1);
     }
 }
 
@@ -186,7 +201,7 @@ _(LL mode support and migration instructions removed — this repo is HAL-only.)
 To integrate with other RTOS (not FreeRTOS/CMSIS-RTOS):
 
 1. Set `USE_FREERTOS=0`
-2. Implement your own mutex/semaphore wrappers in `uart_driver_config.h`
+2. Implement your own mutex/semaphore wrappers in your application or in `include/uart_driver.h` if you want to override defaults.
 3. Define custom tick and critical section macros
 
 ### Mixed HAL usage:

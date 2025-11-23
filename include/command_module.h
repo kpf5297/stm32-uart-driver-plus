@@ -6,12 +6,26 @@
  */
 
 #include "uart_driver.h"
-#include "uart_driver_config.h"
+
+/* Module-level command interpreter defaults; application may override. */
+#ifndef USE_CMD_INTERPRETER
+#define USE_CMD_INTERPRETER 1
+#endif
+#ifndef CMD_MAX_LINE_LEN
+#define CMD_MAX_LINE_LEN 128
+#endif
+#ifndef CMD_MAX_PARAMS
+#define CMD_MAX_PARAMS 8
+#endif
+#ifndef CMD_TASK_PRIO
+#define CMD_TASK_PRIO osPriorityNormal
+#endif
+#ifndef CMD_TASK_STACK
+#define CMD_TASK_STACK 512
+#endif
 
 #if USE_CMD_INTERPRETER
-#include "FreeRTOS.h"
-#include "queue.h"
-#include "task.h"
+#include "cmsis_os2.h"
 #endif
 
 /** Parsed argument list provided to command handlers. */
