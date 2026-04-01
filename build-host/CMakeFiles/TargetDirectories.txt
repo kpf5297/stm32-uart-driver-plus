@@ -1,0 +1,9 @@
+/Users/kevinfox/Code/stm32-uart-driver-plus/build-host/CMakeFiles/test.dir
+/Users/kevinfox/Code/stm32-uart-driver-plus/build-host/CMakeFiles/edit_cache.dir
+/Users/kevinfox/Code/stm32-uart-driver-plus/build-host/CMakeFiles/rebuild_cache.dir
+/Users/kevinfox/Code/stm32-uart-driver-plus/build-host/tests/CMakeFiles/test_unity.dir
+/Users/kevinfox/Code/stm32-uart-driver-plus/build-host/tests/CMakeFiles/test_uart_deterministic_queue.dir
+/Users/kevinfox/Code/stm32-uart-driver-plus/build-host/tests/CMakeFiles/test_uart_driver_determinism.dir
+/Users/kevinfox/Code/stm32-uart-driver-plus/build-host/tests/CMakeFiles/test.dir
+/Users/kevinfox/Code/stm32-uart-driver-plus/build-host/tests/CMakeFiles/edit_cache.dir
+/Users/kevinfox/Code/stm32-uart-driver-plus/build-host/tests/CMakeFiles/rebuild_cache.dir

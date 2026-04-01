@@ -1,0 +1,8 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/kevinfox/Code/stm32-uart-driver-plus/build-host/cmake_install.cmake",
+		"/Users/kevinfox/Code/stm32-uart-driver-plus/build-host/tests/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

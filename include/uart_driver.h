@@ -15,8 +15,25 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include "uart_deterministic_queue.h"
+#include "uart_rtos_adapter.h"
+
+#ifndef UART_RTOS_USE_CMSIS
+#define UART_RTOS_USE_CMSIS 1
+#endif
+
+#if UART_RTOS_USE_CMSIS
 #include "cmsis_os2.h"
-#include "stm32f4xx_hal.h"
+typedef osMutexId_t uart_mutex_handle_t;
+#else
+typedef void *uart_mutex_handle_t;
+#endif
+
+/* Allow CubeMX projects to override the exact STM32 HAL umbrella header. */
+#ifndef UART_STM32_HAL_HEADER
+#define UART_STM32_HAL_HEADER "stm32f4xx_hal.h"
+#endif
+#include UART_STM32_HAL_HEADER
 
 /* Module-level configuration defaults; applications may redefine before including this header. */
 #ifndef UART_TX_NODE_SIZE
@@ -30,7 +47,10 @@
 #define UART_RX_NODE_COUNT 16
 #endif
 
-/* Kernel tick helpers */
+/* Kernel tick helpers.
+ * NOTE: TICKS_PER_SECOND and MS_TO_TICKS call osKernelGetTickFreq() on every
+ * expansion. Cache the result in a local variable when used in a hot path or
+ * when multiple evaluations must be consistent (e.g. quotient + remainder). */
 #define GET_TICKS()            osKernelGetTickCount()
 #define MS_TO_TICKS(ms)        ((uint32_t)(((uint64_t)(ms) * osKernelGetTickFreq()) / 1000U))
 #define TICKS_PER_SECOND       osKernelGetTickFreq()
@@ -114,27 +134,12 @@ uart_status_t uart_reconfigure(uart_drv_t *drv,
  */
 uart_status_t uart_send_blocking   (uart_drv_t *drv, const uint8_t *data, size_t len, uint32_t timeout_ms);
 
-/**
- * @brief Receive data in a blocking manner.
- *
- * Similar to uart_send_blocking() but for reception.
- */
-
 /** @brief Begin a queued non-blocking transmit (DMA-based). */
 uart_status_t uart_send_nb   (uart_drv_t *drv, const uint8_t *data, size_t len);
-/** @brief Begin a queued non-blocking receive (DMA-based). */
-/**
- * @brief Begin a queued non-blocking receive.
- *
- * The request is enqueued and will be serviced when a DMA channel becomes available.
- * The user must ensure the provided buffer remains valid until the driver completes
- * the receive and calls the registered callback (UART_EVT_RX_COMPLETE).
- */
 
-/** @brief Begin a DMA based transmit. */
+/** @brief Begin a direct DMA transmit (no queue). */
 uart_status_t uart_start_dma_tx(uart_drv_t *drv, const uint8_t *data, size_t len);
-/** @brief Begin a DMA based receive. */
-/* RX APIs (single-shot and queued) removed — driver now uses circular DMA RX only. */
+/* RX is circular-only; use uart_start_circular_rx and uart_read_from_circular. */
 /* Start circular DMA receive into provided buffer and enable IDLE detection */
 uart_status_t uart_start_circular_rx(uart_drv_t *drv, uint8_t *buf, size_t len);
 
@@ -186,32 +191,46 @@ struct uart_drv_handle_s {
     DMA_HandleTypeDef  *hdma_rx;
 
     /* CMSIS-RTOS v2 synchronization */
-    osMutexId_t         tx_mutex;
-    osMutexId_t         rx_mutex;
+    uart_mutex_handle_t tx_mutex;
+    uart_mutex_handle_t rx_mutex;
     
     /* Status and callback management */
     uart_callback_t     cb;
     void               *ctx;
     volatile uart_status_t tx_status;
     volatile uart_status_t rx_status;
-    /* Linked list-based TX queue */
-    struct uart_tx_node_s *tx_head;
-    struct uart_tx_node_s *tx_tail;
-    /* Queue operations are irq-protected; no OS mutex required */
-    size_t tx_queue_count;
+    /* Deterministic pending TX queue of pool-node pointers. */
+    uart_deterministic_queue_t tx_pending_queue;
+    struct uart_tx_node_s *tx_queue_storage[UART_TX_NODE_COUNT];
     struct uart_tx_node_s *active_tx_node; /* Currently active DMA node */
+    /* Per-instance deterministic TX pool (no cross-instance sharing). */
+    struct uart_tx_node_s tx_node_pool[UART_TX_NODE_COUNT];
+    struct uart_tx_node_s *tx_free_list;
+    bool tx_pool_initialized;
+    volatile size_t tx_fallback_count;
     /* No queued RX support: circular-only RX implementation now */
     /* Circular DMA RX support */
     uint8_t *circular_buf;    /* Buffer used by circular DMA */
     size_t   circular_len;    /* Length of circular buffer */
     size_t   circular_last_pos;/* Last read position in circular buffer */
     bool     circular_enabled; /* Is circular RX active? */
+    const uart_rtos_adapter_t *rtos_adapter;
+    void *rtos_ctx;
 };
 
 /* (already declared above) */
 
 /** Register a callback invoked from ISR context on UART events. */
 void uart_register_callback(uart_drv_t *drv, uart_callback_t cb, void *user_ctx);
+
+/**
+ * @brief Set a custom RTOS adapter for mutex, tick, and delay operations.
+ *
+ * Call before uart_init() to override default CMSIS-based behavior.
+ */
+void uart_set_rtos_adapter(uart_drv_t *drv,
+                           const uart_rtos_adapter_t *adapter,
+                           void *rtos_ctx);
 
 #ifdef __cplusplus
 }

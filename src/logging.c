@@ -15,7 +15,6 @@
 #define LOG_TASK_DELAY_MS 10
 #define FAULT_CHECK_INTERVAL_MS 500
 #define TASK_DELAY_MS 1
-#define TIMESTAMP_SCALE_FACTOR 1000
 
 // Module state
 static uart_drv_t *log_uart = NULL;
@@ -54,9 +53,15 @@ static void perform_fault_check(char *out_buf, size_t len);
 static Timestamp get_current_timestamp(void)
 {
     uint32_t ticks = (uint32_t)GET_TICKS();
+    uint32_t freq  = osKernelGetTickFreq();
     Timestamp ts;
-    ts.seconds = ticks / TIMESTAMP_SCALE_FACTOR;
-    ts.subseconds = ticks % TIMESTAMP_SCALE_FACTOR;
+    if (freq == 0U) {
+        ts.seconds    = 0;
+        ts.subseconds = 0;
+        return ts;
+    }
+    ts.seconds    = ticks / freq;
+    ts.subseconds = (ticks % freq) * 1000U / freq;  /* convert remainder to ms */
     return ts;
 }
 
@@ -76,7 +81,11 @@ void log_init(uart_drv_t *drv)
         osThreadAttr_t attr = {0};
         attr.priority = LOG_TASK_PRIO;
         attr.stack_size = LOG_TASK_STACK;
-        osThreadNew(log_task, NULL, &attr);
+        if (!osThreadNew(log_task, NULL, &attr)) {
+            /* Thread creation failed; logging will be silently disabled */
+            osMessageQueueDelete(log_queue);
+            log_queue = NULL;
+        }
     }
 #endif
 }
@@ -147,20 +156,27 @@ static void process_log_queue(char *out_buf, size_t len)
                                entry.ts.subseconds,
                                entry.level,
                                entry.payload);
-        log_tx((const uint8_t *)out_buf, out_len, false);
+        if (out_len > 0) {
+            size_t tx_len = ((size_t)out_len < len) ? (size_t)out_len : len - 1;
+            log_tx((const uint8_t *)out_buf, tx_len, false);
+        }
     }
 }
 
 static void process_telemetry_queue(char *out_buf, size_t len)
 {
+    if (!telemetry_queue) return;
     TelemetryPacket pkt;
     if (osMessageQueueGet(telemetry_queue, &pkt, NULL, 0) == osOK) {
+        Timestamp ts = get_current_timestamp();
         int out_len = snprintf(out_buf, len,
                                "[%lu.%03lu] TLM sensor1=%lu sensor2=%.2f\r\n",
-                               get_current_timestamp().seconds,
-                               get_current_timestamp().subseconds,
+                               ts.seconds, ts.subseconds,
                                pkt.sensor1, pkt.sensor2);
-        log_tx((const uint8_t *)out_buf, out_len, true);
+        if (out_len > 0) {
+            size_t tx_len = ((size_t)out_len < len) ? (size_t)out_len : len - 1;
+            log_tx((const uint8_t *)out_buf, tx_len, true);
+        }
     }
 }
 

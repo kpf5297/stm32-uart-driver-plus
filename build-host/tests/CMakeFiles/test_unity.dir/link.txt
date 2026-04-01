@@ -1,0 +1,2 @@
+/usr/bin/ar qc libtest_unity.a CMakeFiles/test_unity.dir/framework/unity.c.o
+/usr/bin/ranlib libtest_unity.a

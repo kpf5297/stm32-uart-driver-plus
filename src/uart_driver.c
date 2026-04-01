@@ -19,55 +19,57 @@
 /* Registry of all inited instances */
 static uart_drv_t *uart_instances[UART_DRV_MAX_INSTANCES];
 static size_t      uart_instance_count = 0;
-
-/* Shared TX node pool for linked-list queueing */
-static uart_tx_node_t tx_node_pool[UART_TX_NODE_COUNT];
-static uart_tx_node_t *tx_free_list = NULL;
-static bool tx_pool_initialized = false;
-/* Diagnostics: counts of fallback allocations when pool empty */
-static volatile size_t tx_fallback_count = 0;
 /* No RX node pool: circular-only RX mode enabled */
 
-static void tx_pool_init(void) {
-    if (tx_pool_initialized) return;
+static void tx_pool_init(uart_drv_t *drv) {
+    if (!drv || drv->tx_pool_initialized) return;
     /* Use IRQ disable for pool protection (safe in ISR) */
     for (int i = 0; i < UART_TX_NODE_COUNT - 1; ++i) {
-        tx_node_pool[i].next = &tx_node_pool[i+1];
-        tx_node_pool[i].in_use = false;
-        tx_node_pool[i].len = 0;
+        drv->tx_node_pool[i].next = &drv->tx_node_pool[i+1];
+        drv->tx_node_pool[i].in_use = false;
+        drv->tx_node_pool[i].len = 0;
     }
-    tx_node_pool[UART_TX_NODE_COUNT - 1].next = NULL;
-    tx_node_pool[UART_TX_NODE_COUNT - 1].in_use = false;
-    tx_node_pool[UART_TX_NODE_COUNT - 1].len = 0;
-    tx_free_list = &tx_node_pool[0];
-    tx_pool_initialized = true;
+    drv->tx_node_pool[UART_TX_NODE_COUNT - 1].next = NULL;
+    drv->tx_node_pool[UART_TX_NODE_COUNT - 1].in_use = false;
+    drv->tx_node_pool[UART_TX_NODE_COUNT - 1].len = 0;
+    drv->tx_free_list = &drv->tx_node_pool[0];
+    drv->tx_pool_initialized = true;
+    drv->tx_fallback_count = 0;
 }
 
-static uart_tx_node_t *tx_pool_alloc(void) {
-    if (!tx_pool_initialized) tx_pool_init();
+static uart_tx_node_t *tx_pool_alloc(uart_drv_t *drv) {
+    if (!drv) return NULL;
+    if (!drv->tx_pool_initialized) tx_pool_init(drv);
     FAULT_ENTER_CRITICAL();
-    uart_tx_node_t *n = tx_free_list;
+    uart_tx_node_t *n = drv->tx_free_list;
     if (n) {
-        tx_free_list = n->next;
+        drv->tx_free_list = n->next;
         n->next = NULL;
         n->in_use = true;
     }
     FAULT_EXIT_CRITICAL();
     if (!n) {
         /* Keep a running count when allocations fail so we can diagnose TX pool exhaustion */
-        tx_fallback_count++;
+        drv->tx_fallback_count++;
     }
     return n;
 }
 
-static void tx_pool_free(uart_tx_node_t *n) {
-    if (!n) return;
+static void tx_pool_free(uart_drv_t *drv, uart_tx_node_t *n) {
+    if (!drv || !n) return;
     FAULT_ENTER_CRITICAL();
-    n->next = tx_free_list;
+    n->next = drv->tx_free_list;
     n->in_use = false;
     n->len = 0;
-    tx_free_list = n;
+    drv->tx_free_list = n;
     FAULT_EXIT_CRITICAL();
+}
+
+static const uart_rtos_adapter_t *get_rtos_adapter(uart_drv_t *drv) {
+    if (!drv->rtos_adapter) {
+        drv->rtos_adapter = uart_rtos_get_default_adapter();
+    }
+    return drv->rtos_adapter;
 }
 
 /* No queued RX pool in circular-only mode */
@@ -78,12 +80,16 @@ static void tx_pool_free(uart_tx_node_t *n) {
  * @return Pointer to matching driver instance, or NULL if not found
  */
 static uart_drv_t *find_drv(UART_HandleTypeDef *hu) {
+    uart_drv_t *result = NULL;
+    FAULT_ENTER_CRITICAL();
     for (size_t i = 0; i < uart_instance_count; ++i) {
         if (uart_instances[i]->huart == hu) {
-            return uart_instances[i];
+            result = uart_instances[i];
+            break;
         }
     }
-    return NULL;
+    FAULT_EXIT_CRITICAL();
+    return result;
 }
 
 /**
@@ -109,21 +115,19 @@ static void notify_event(uart_drv_t *drv, uart_event_t evt) {
 /* Queue helpers */
 static int drv_queue_enqueue(uart_drv_t *drv, const uint8_t *data, size_t len) {
     if (!drv || !data || len == 0 || len > UART_TX_NODE_SIZE) return -1;
-    uart_tx_node_t *n = tx_pool_alloc();
+    uart_tx_node_t *n = tx_pool_alloc(drv);
     if (!n) return -1;
     memcpy(n->payload, data, len);
     n->len = (uint16_t)len;
     n->next = NULL;
 
     FAULT_ENTER_CRITICAL();
-    if (drv->tx_tail == NULL) {
-        drv->tx_head = drv->tx_tail = n;
-    } else {
-        drv->tx_tail->next = n;
-        drv->tx_tail = n;
-    }
-    drv->tx_queue_count++;
+    uart_queue_status_t qstatus = uart_queue_push(&drv->tx_pending_queue, &n);
     FAULT_EXIT_CRITICAL();
+    if (qstatus != UART_QUEUE_OK) {
+        tx_pool_free(drv, n);
+        return -1;
+    }
     return 0;
 }
 
@@ -131,11 +135,8 @@ static uart_tx_node_t *drv_queue_dequeue(uart_drv_t *drv) {
     if (!drv) return NULL;
     uart_tx_node_t *n = NULL;
     FAULT_ENTER_CRITICAL();
-    n = drv->tx_head;
-    if (n) {
-        drv->tx_head = n->next;
-        if (drv->tx_head == NULL) drv->tx_tail = NULL;
-        drv->tx_queue_count--;
+    if (uart_queue_pop(&drv->tx_pending_queue, &n) != UART_QUEUE_OK) {
+        n = NULL;
     }
     FAULT_EXIT_CRITICAL();
     return n;
@@ -150,9 +151,13 @@ uart_status_t uart_init(uart_drv_t *drv,
                         DMA_HandleTypeDef  *hdma_tx,
                         DMA_HandleTypeDef  *hdma_rx)
 {
+    if (!drv || !huart) {
+        return UART_ERROR;
+    }
     if (uart_instance_count >= UART_DRV_MAX_INSTANCES) {
         return UART_ERROR;
     }
+    const uart_rtos_adapter_t *rtos = get_rtos_adapter(drv);
     drv->huart = huart;
     drv->hdma_tx = hdma_tx;
     drv->hdma_rx = hdma_rx;
@@ -163,14 +168,18 @@ uart_status_t uart_init(uart_drv_t *drv,
     if (drv->hdma_rx) {
         drv->huart->hdmarx = drv->hdma_rx;
     }
-    /* Create CMSIS-RTOS v2 mutexes */
-    drv->tx_mutex = osMutexNew(NULL);
-    drv->rx_mutex = osMutexNew(NULL);
-    /* tx_queue_mutex not used; queue operations are protected by IRQ critical sections */
-    drv->tx_head = drv->tx_tail = NULL;
-    drv->tx_queue_count = 0;
+    /* Create synchronization primitives via selected RTOS adapter. */
+    drv->tx_mutex = rtos->create_mutex(drv->rtos_ctx);
+    drv->rx_mutex = rtos->create_mutex(drv->rtos_ctx);
         /* circular-only RX: no queued RX nodes */
-    tx_pool_init();
+    drv->tx_free_list = NULL;
+    drv->tx_pool_initialized = false;
+    drv->tx_fallback_count = 0;
+    tx_pool_init(drv);
+    (void)uart_queue_init(&drv->tx_pending_queue,
+                          (uint8_t *)drv->tx_queue_storage,
+                          sizeof(drv->tx_queue_storage[0]),
+                          UART_TX_NODE_COUNT);
         /* no rx pool to init for circular-only RX */
     drv->cb       = NULL;
     drv->ctx      = NULL;
@@ -181,8 +190,10 @@ uart_status_t uart_init(uart_drv_t *drv,
     drv->circular_len = 0;
     drv->circular_last_pos = 0;
     drv->circular_enabled = false;
-    /* Register instance */
+    /* Register instance; guard against ISR preemption during the write */
+    FAULT_ENTER_CRITICAL();
     uart_instances[uart_instance_count++] = drv;
+    FAULT_EXIT_CRITICAL();
     return (drv->tx_mutex && drv->rx_mutex) ? UART_OK : UART_ERROR;
 }
 
@@ -192,10 +203,14 @@ uart_status_t uart_init(uart_drv_t *drv,
  */
 void uart_deinit(uart_drv_t *drv)
 {
-    /* Remove from registry */
+    if (!drv) {
+        return;
+    }
+    const uart_rtos_adapter_t *rtos = get_rtos_adapter(drv);
+    /* Remove from registry; guard against ISR preemption during the write */
+    FAULT_ENTER_CRITICAL();
     for (size_t i = 0; i < uart_instance_count; ++i) {
         if (uart_instances[i] == drv) {
-            /* Shift remaining instances down */
             for (size_t j = i; j + 1 < uart_instance_count; ++j) {
                 uart_instances[j] = uart_instances[j+1];
             }
@@ -203,17 +218,18 @@ void uart_deinit(uart_drv_t *drv)
             break;
         }
     }
-    /* Clean up CMSIS-RTOS v2 resources */
+    FAULT_EXIT_CRITICAL();
+    /* Clean up RTOS resources */
     if (drv->tx_mutex) {
-        osMutexDelete(drv->tx_mutex);
+        rtos->delete_mutex(drv->rtos_ctx, drv->tx_mutex);
     }
     if (drv->rx_mutex) {
-        osMutexDelete(drv->rx_mutex);
+        rtos->delete_mutex(drv->rtos_ctx, drv->rx_mutex);
     }
     /* Free any queued nodes for this driver */
     uart_tx_node_t *n;
     while ((n = drv_queue_dequeue(drv)) != NULL) {
-        tx_pool_free(n);
+        tx_pool_free(drv, n);
     }
     /* No queued RX nodes to free when using circular-only RX */
     /* tx_queue_mutex is not present in new implementation */
@@ -231,6 +247,7 @@ uart_status_t uart_reconfigure(uart_drv_t *drv,
                                DMA_HandleTypeDef  *hdma_tx,
                                DMA_HandleTypeDef  *hdma_rx)
 {
+    if (!drv || !huart) return UART_ERROR;
     drv->huart = huart;
     drv->hdma_tx = hdma_tx;
     drv->hdma_rx = hdma_rx;
@@ -268,18 +285,25 @@ uart_status_t uart_send_nb(uart_drv_t *drv, const uint8_t *data, size_t len) {
     if (drv_queue_enqueue(drv, data, len) != 0) {
         return UART_BUSY; // queue full or allocation failed
     }
-    /* If there's no active TX, start transmission from queue */
-    if (drv->tx_status != UART_BUSY) {
+    /* Atomically claim the TX channel if idle, then start outside the critical section */
+    FAULT_ENTER_CRITICAL();
+    bool start_tx = (drv->tx_status != UART_BUSY);
+    if (start_tx) {
+        drv->tx_status = UART_BUSY;
+    }
+    FAULT_EXIT_CRITICAL();
+    if (start_tx) {
         uart_tx_node_t *n = drv_queue_dequeue(drv);
         if (n) {
-            drv->tx_status = UART_BUSY;
             drv->active_tx_node = n;
             if (HAL_UART_Transmit_DMA(drv->huart, (uint8_t *)n->payload, n->len) != HAL_OK) {
                 drv->tx_status = UART_ERROR;
                 drv->active_tx_node = NULL;
-                tx_pool_free(n);
+                tx_pool_free(drv, n);
                 return UART_ERROR;
             }
+        } else {
+            drv->tx_status = UART_OK;
         }
     }
     return UART_OK;
@@ -309,8 +333,9 @@ uart_status_t uart_start_circular_rx(uart_drv_t *drv, uint8_t *buf, size_t len) 
     drv->circular_len = len;
     drv->circular_last_pos = 0;
     drv->circular_enabled = true;
-    /* Ensure DMA is in circular mode */
-    drv->hdma_rx->Instance->CR |= DMA_SxCR_CIRC;
+    /* NOTE: DMA circular mode must be configured via hdmarx->Init.Mode = DMA_CIRCULAR
+     * before calling MX_DMA_Init(). Patching DMA_SxCR_CIRC here is unsafe because
+     * HAL_UART_Receive_DMA reconfigures the stream from Init and would overwrite it. */
     /* Enable UART IDLE interrupt so we can detect end of packet */
     __HAL_UART_ENABLE_IT(drv->huart, UART_IT_IDLE);
     if (HAL_UART_Receive_DMA(drv->huart, buf, len) != HAL_OK) {
@@ -324,34 +349,38 @@ uart_status_t uart_start_circular_rx(uart_drv_t *drv, uint8_t *buf, size_t len) 
 uart_status_t uart_send_dma_blocking(uart_drv_t *drv, const uint8_t *data,
                                      size_t len, uint32_t timeout_ms)
 {
+    if (!drv || !data || len == 0) {
+        return UART_ERROR;
+    }
+    const uart_rtos_adapter_t *rtos = get_rtos_adapter(drv);
     if (!drv->hdma_tx) {
         return UART_ERROR;
     }
-    if (osMutexAcquire(drv->tx_mutex, MS_TO_TICKS(timeout_ms)) != osOK) {
+    if (rtos->mutex_lock(drv->rtos_ctx, drv->tx_mutex, timeout_ms) != UART_RTOS_OP_OK) {
         return UART_BUSY;
     }
 
     /* If a non-blocking queued TX is in progress, wait until it finishes */
     while (drv->tx_status == UART_BUSY) {
-        osDelay(TASK_DELAY_MS);
+        rtos->delay_ms(drv->rtos_ctx, TASK_DELAY_MS);
     }
     drv->tx_status = UART_BUSY;
     if (HAL_UART_Transmit_DMA(drv->huart, (uint8_t *)data, len) != HAL_OK) {
                 drv->tx_status = UART_ERROR;
-        osMutexRelease(drv->tx_mutex);
+        rtos->mutex_unlock(drv->rtos_ctx, drv->tx_mutex);
         return UART_ERROR;
     }
 
-    uint32_t start = GET_TICKS();
+    uint32_t start = rtos->get_ticks(drv->rtos_ctx);
     while (drv->tx_status == UART_BUSY) {
-        if ((GET_TICKS() - start) >= MS_TO_TICKS(timeout_ms)) {
+        if ((rtos->get_ticks(drv->rtos_ctx) - start) >= timeout_ms) {
             drv->tx_status = UART_ERROR;
-            osMutexRelease(drv->tx_mutex);
+            rtos->mutex_unlock(drv->rtos_ctx, drv->tx_mutex);
             return UART_ERROR;
         }
-        osDelay(TASK_DELAY_MS);
+        rtos->delay_ms(drv->rtos_ctx, TASK_DELAY_MS);
     }
-    osMutexRelease(drv->tx_mutex);
+    rtos->mutex_unlock(drv->rtos_ctx, drv->tx_mutex);
     return drv->tx_status;
 }
 
@@ -373,15 +402,15 @@ size_t uart_bytes_available(uart_drv_t *drv) {
 
 size_t uart_get_tx_queue_count(uart_drv_t *drv) {
     if (!drv) return 0;
-    return drv->tx_queue_count;
+    return uart_queue_count(&drv->tx_pending_queue);
 }
 
 size_t uart_get_tx_pool_free_count(uart_drv_t *drv) {
-    (void)drv; /* pool is global across instances */
-    if (!tx_pool_initialized) return UART_TX_NODE_COUNT;
+    if (!drv) return 0;
+    if (!drv->tx_pool_initialized) return UART_TX_NODE_COUNT;
     size_t c = 0;
     FAULT_ENTER_CRITICAL();
-    uart_tx_node_t *n = tx_free_list;
+    uart_tx_node_t *n = drv->tx_free_list;
     while (n) { c++; n = n->next; }
     FAULT_EXIT_CRITICAL();
     return c;
@@ -393,21 +422,25 @@ size_t uart_get_tx_pool_total_count(uart_drv_t *drv) {
 }
 
 size_t uart_get_tx_fallback_count(uart_drv_t *drv) {
-    (void)drv;
-    return tx_fallback_count;
+    if (!drv) return 0;
+    return drv->tx_fallback_count;
 }
 
 void uart_flush_rx(uart_drv_t *drv) {
+    if (!drv || !drv->huart) return;
     __HAL_UART_CLEAR_OREFLAG(drv->huart);
 }
 
 void uart_flush_tx(uart_drv_t *drv) {
+    if (!drv || !drv->huart) return;
     __HAL_UART_CLEAR_FLAG(drv->huart, UART_FLAG_TC);
 }
 
 uart_status_t uart_get_status(uart_drv_t *drv) {
-        return (drv->tx_status == UART_BUSY || drv->rx_status == UART_BUSY) ? UART_BUSY : \
-            (drv->tx_status == UART_ERROR || drv->rx_status == UART_ERROR) ? UART_ERROR : UART_OK;
+    if (!drv) return UART_ERROR;
+    if (drv->tx_status == UART_BUSY || drv->rx_status == UART_BUSY) return UART_BUSY;
+    if (drv->tx_status == UART_ERROR || drv->rx_status == UART_ERROR) return UART_ERROR;
+    return UART_OK;
 }
 
 uart_status_t uart_system_init(uart_drv_t *drv,
@@ -466,8 +499,21 @@ void uart_process_idle(UART_HandleTypeDef *hu) {
  ******************************************************************************/
 
 void uart_register_callback(uart_drv_t *drv, uart_callback_t cb, void *user_ctx) {
+    if (!drv) {
+        return;
+    }
     drv->cb  = cb;
     drv->ctx = user_ctx;
+}
+
+void uart_set_rtos_adapter(uart_drv_t *drv,
+                           const uart_rtos_adapter_t *adapter,
+                           void *rtos_ctx) {
+    if (!drv) {
+        return;
+    }
+    drv->rtos_adapter = adapter;
+    drv->rtos_ctx = rtos_ctx;
 }
 
 /*******************************************************************************
@@ -476,27 +522,27 @@ void uart_register_callback(uart_drv_t *drv, uart_callback_t cb, void *user_ctx)
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *hu) {
     uart_drv_t *drv = find_drv(hu);
-    if (drv) {
-        notify_event(drv, UART_EVT_TX_COMPLETE);
-        /* Free active node and start next queued DMA transfer if available */
-        if (drv->active_tx_node) {
-            tx_pool_free(drv->active_tx_node);
+    if (!drv) return;
+    /* Free the just-completed node */
+    if (drv->active_tx_node) {
+        tx_pool_free(drv, drv->active_tx_node);
+        drv->active_tx_node = NULL;
+    }
+    /* Dequeue before updating tx_status so it is never briefly UART_OK while
+     * items are still pending — this closes the race with uart_send_nb. */
+    uart_tx_node_t *n = drv_queue_dequeue(drv);
+    if (n) {
+        drv->active_tx_node = n;
+        drv->tx_status = UART_BUSY;
+        if (HAL_UART_Transmit_DMA(drv->huart, (uint8_t *)n->payload, n->len) != HAL_OK) {
+            drv->tx_status = UART_ERROR;
+            tx_pool_free(drv, n);
             drv->active_tx_node = NULL;
+            if (drv->cb) drv->cb(UART_EVT_ERROR, drv->ctx);
         }
-        uart_tx_node_t *n = drv_queue_dequeue(drv);
-        if (n) {
-            /* Start next DMA on the driver; keep status as BUSY */
-            drv->active_tx_node = n;
-            drv->tx_status = UART_BUSY;
-            if (HAL_UART_Transmit_DMA(drv->huart, (uint8_t *)n->payload, n->len) != HAL_OK) {
-                drv->tx_status = UART_ERROR;
-                tx_pool_free(n);
-                drv->active_tx_node = NULL;
-            }
-        } else {
-            /* No more queued items */
-            drv->tx_status = UART_OK;
-        }
+    } else {
+        /* Queue fully drained; only now signal completion */
+        notify_event(drv, UART_EVT_TX_COMPLETE);
     }
 }
 

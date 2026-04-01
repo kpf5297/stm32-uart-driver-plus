@@ -59,24 +59,14 @@ void cmd_write(const char *s) {
 }
 
 void cmd_printf(const char *fmt, ...) {
-    static char formatted_buffer[CMD_MAX_LINE_LEN]; // Static buffer to avoid malloc
-    char stream_buf[32]; // Use a smaller buffer for streaming
+    char buf[CMD_MAX_LINE_LEN];
     va_list args;
-    
     va_start(args, fmt);
-    int len = vsnprintf(formatted_buffer, sizeof(formatted_buffer), fmt, args);
+    int len = vsnprintf(buf, sizeof(buf), fmt, args);
     va_end(args);
-
     if (len > 0) {
-        // Stream the formatted string in chunks
-        int remaining = (len < (int)sizeof(formatted_buffer)) ? len : (int)sizeof(formatted_buffer) - 1;
-        for (int i = 0; i < remaining; i += sizeof(stream_buf) - 1) {
-            int chunk_size = (remaining - i < (int)sizeof(stream_buf) - 1) ? 
-                           remaining - i : (int)sizeof(stream_buf) - 1;
-            strncpy(stream_buf, &formatted_buffer[i], chunk_size);
-            stream_buf[chunk_size] = '\0';
-            cmd_write(stream_buf);
-        }
+        size_t tx_len = ((size_t)len < sizeof(buf)) ? (size_t)len : sizeof(buf) - 1;
+        cmd_tx_bytes((const uint8_t *)buf, tx_len);
     }
 }
 
@@ -175,6 +165,10 @@ void cmd_init(uart_drv_t *uart_drv) {
     attr.priority = CMD_TASK_PRIO;
     attr.stack_size = CMD_TASK_STACK;
     cmd_task_id = osThreadNew(cmd_task, NULL, &attr);
+    if (!cmd_task_id) {
+        /* Thread creation failed; callback would call osThreadFlagsSet(NULL) which is UB */
+        uart_register_callback(uart, NULL, NULL);
+    }
 }
 
 

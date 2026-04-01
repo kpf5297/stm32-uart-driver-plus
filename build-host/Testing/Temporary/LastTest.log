@@ -1,0 +1,39 @@
+Start testing: Apr 01 08:50 EDT
+----------------------------------------------------------
+1/2 Testing: test_uart_deterministic_queue
+1/2 Test: test_uart_deterministic_queue
+Command: "/Users/kevinfox/Code/stm32-uart-driver-plus/build-host/tests/test_uart_deterministic_queue"
+Directory: /Users/kevinfox/Code/stm32-uart-driver-plus/build-host/tests
+"test_uart_deterministic_queue" start time: Apr 01 08:50 EDT
+Output:
+----------------------------------------------------------
+[UNITY] Suite: test_uart_deterministic_queue
+[UNITY] Tests run: 3
+[UNITY] Tests failed: 0
+<end of output>
+Test time =   0.29 sec
+----------------------------------------------------------
+Test Passed.
+"test_uart_deterministic_queue" end time: Apr 01 08:50 EDT
+"test_uart_deterministic_queue" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/2 Testing: test_uart_driver_determinism
+2/2 Test: test_uart_driver_determinism
+Command: "/Users/kevinfox/Code/stm32-uart-driver-plus/build-host/tests/test_uart_driver_determinism"
+Directory: /Users/kevinfox/Code/stm32-uart-driver-plus/build-host/tests
+"test_uart_driver_determinism" start time: Apr 01 08:50 EDT
+Output:
+----------------------------------------------------------
+[UNITY] Suite: test_uart_driver_determinism
+[UNITY] Tests run: 3
+[UNITY] Tests failed: 0
+<end of output>
+Test time =   0.12 sec
+----------------------------------------------------------
+Test Passed.
+"test_uart_driver_determinism" end time: Apr 01 08:50 EDT
+"test_uart_driver_determinism" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Apr 01 08:50 EDT

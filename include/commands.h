@@ -8,7 +8,6 @@
 #include "command_module.h"
 
 #if USE_CMD_INTERPRETER
-#include "command_module.h"
 
 /** Print list of supported commands. */
 void cmd_help(Args *args);

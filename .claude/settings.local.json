@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmake -S . -B build-host -DUART_DRIVER_BUILD_EMBEDDED_LIB=OFF -DUART_DRIVER_BUILD_TESTS=ON)",
+      "Bash(cmake --build build-host)",
+      "Bash(ctest --test-dir build-host --output-on-failure -V)"
+    ]
+  }
+}
